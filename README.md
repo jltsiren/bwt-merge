@@ -11,12 +11,12 @@ The purpose of this tool is to merge run-length encoded BWTs of read collections
 
 ## Existing algorithms
 
-There are several BWT construction algorithms based on updating an existing BWT. Some algorithms **extend** sequences already in the collections, updating *BWT(T[i+1,j])* to *BWT(T[i,j])*. Others **insert** new sequences to the collection, updating *BWT(S)* to *BWT(S,T)*. In both cases, the algorithm can either do **batch updates** to a **static** BWT representation, or use a **dynamic** representation for the BWT. Algorithms with a static BWT representation require more working space, while algorithms with a dynamic representation have more space overhead for the BWT.
+There are several BWT construction algorithms based on updating an existing BWT. Some algorithms **extend** sequences already in the collection, updating *BWT(T[i+1,j])* to *BWT(T[i,j])*. Others **insert** new sequences to the collection, updating *BWT(S)* to *BWT(S,T)*. In both cases, the algorithm can either do **batch updates** to a **static** BWT representation, or use a **dynamic** representation for the BWT. Algorithms with a static BWT representation require more working space, while algorithms with a dynamic representation have more space overhead for the BWT.
 
 Some common implementations include:
 
 * [BEETL](https://github.com/BEETL/BEETL): (extend, static) on disk
-* [NVbio](http://nvlabs.github.io/nvbio/): (insert, dynamic) using GPU
+* [NVBIO](http://nvlabs.github.io/nvbio/): (insert, dynamic) using GPU
 * [RLCSA](http://jltsiren.kapsi.fi/rlcsa): (insert, static)
 * [ropebwt](https://github.com/lh3/ropebwt): (extend, static) or (insert by extending, dynamic)
 * [ropebwt2](https://github.com/lh3/ropebwt2): (insert by extending, dynamic)
@@ -32,8 +32,8 @@ Wing-Kai Hon, Tak-Wah Lam, Kunihiko Sadakane, Wing-Kin Sung, Siu-Ming Yiu:
 Algorithmica 48(1): 23-36, 2007.
 [DOI: 10.1007/s00453-006-1228-8](http://dx.doi.org/10.1007/s00453-006-1228-8)
 
-Jouni Sirén: **Compressed Full-Text Indexes for Highly Repetitive Collections** (PhD Thesis).
-University of Helsinki, June 2012.
+Jouni Sirén: **Compressed Full-Text Indexes for Highly Repetitive Collections**.
+PhD Thesis, University of Helsinki, June 2012.
 [http://jltsiren.kapsi.fi/phd](http://jltsiren.kapsi.fi/phd)
 
 Markus J. Bauer, Anthony J. Cox, and Giovanna Rosone:
