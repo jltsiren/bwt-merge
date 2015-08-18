@@ -201,9 +201,15 @@ BlockArray::clear()
 {
   for(size_type i = 0; i < this->data.size(); i++)
   {
-    delete[] this->data[i]; this->data[i] = 0;
+    this->clear(i);
   }
   this->data.clear();
+}
+
+void
+BlockArray::clear(size_type _block)
+{
+  delete[] this->data[_block]; this->data[_block] = 0;
 }
 
 void
@@ -243,7 +249,7 @@ BlockArray::serialize(std::ostream& out, sdsl::structure_tree_node* s, std::stri
   written_bytes += sdsl::write_member(this->bytes, out, child, "bytes");
   for(size_type i = 0; i < this->bytes; i++)
   {
-    out.write((char*)(this->data[i / BLOCK_SIZE]), std::min(BLOCK_SIZE, this->bytes - i));
+    out.write((char*)(this->data[block(i)]), std::min(BLOCK_SIZE, this->bytes - i));
   }
   written_bytes += bytes;
   sdsl::structure_tree::add_size(child, written_bytes);
@@ -258,8 +264,8 @@ BlockArray::load(std::istream& in)
   this->data = std::vector((this->bytes + BLOCK_SIZE - 1) / BLOCK_SIZE, 0);
   for(size_type i = 0; i < this->bytes; i++)
   {
-    byte_type* buffer = new byte_type[BLOCK_SIZE];
-    in.read((char*)buffer, std::min(BLOCK_SIZE, this->bytes - i));
+    this->data[block(i)] = new byte_type[BLOCK_SIZE];
+    in.read((char*)(this->data[block(i)]), std::min(BLOCK_SIZE, this->bytes - i));
   }
 }
 

@@ -126,19 +126,25 @@ public:
   inline size_type size() const { return this->bytes; }
   inline size_type blocks() const { return this->data.size(); }
 
+  inline static size_type block(size_type i) { return i / BLOCK_SIZE; }
+  inline static size_type offset(size_type i) { return i % BLOCK_SIZE; }
+
+  void clear();
+  void clear(size_type _block);
+
   inline byte_type operator[] (size_type i) const
   {
-    return this->data[i / BLOCK_SIZE][i % BLOCK_SIZE];
+    return this->data[block(i)][offset(i)];
   }
 
   inline byte_type& operator[] (size_type i)
   {
-    return this->data[i / BLOCK_SIZE][i % BLOCK_SIZE];
+    return this->data[block(i)][offset(i)];
   }
 
   inline void push_back(byte_type value)
   {
-    if(this->bytes % BLOCK_SIZE == 0) { this->data.push_back(new byte_type[BLOCK_SIZE]); }
+    if(offset(this->bytes) == 0) { this->data.push_back(new byte_type[BLOCK_SIZE]); }
     (*this)[this->bytes] = value;
     this->bytes++;
   }
@@ -151,7 +157,6 @@ public:
 
 private:
   void copy(const BlockArray& b);
-  void clear();
 };  // class BlockArray
 
 //------------------------------------------------------------------------------
