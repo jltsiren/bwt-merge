@@ -226,7 +226,7 @@ removeDuplicates(std::vector<Element>& vec, bool parallel)
 //------------------------------------------------------------------------------
 
 /*
-  BWTMERGE uses a contiguous byte alphabet [0, sigma - 1] internally. Array C is based on the
+  BWT-merge uses a contiguous byte alphabet [0, sigma - 1] internally. Array C is based on the
   number of occurrences of each character in the BWT.
 */
 
