@@ -33,14 +33,14 @@ namespace bwtmerge
 
 /*
   The default alphabet interprets \0 and $ as endmarkers, ACGT and acgt as ACGT,
-  # as a the label of the source node, and the and the remaining characters as N.
+  and the and the remaining characters as N.
 */
 
 const sdsl::int_vector<8> Alphabet::DEFAULT_CHAR2COMP =
 {
   0, 5, 5, 5,  5, 5, 5, 5,  5, 5, 5, 5,  5, 5, 5, 5,
   5, 5, 5, 5,  5, 5, 5, 5,  5, 5, 5, 5,  5, 5, 5, 5,
-  5, 5, 5, 6,  0, 5, 5, 5,  5, 5, 5, 5,  5, 5, 5, 5,
+  5, 5, 5, 5,  0, 5, 5, 5,  5, 5, 5, 5,  5, 5, 5, 5,
   5, 5, 5, 5,  5, 5, 5, 5,  5, 5, 5, 5,  5, 5, 5, 5,
 
   5, 1, 5, 2,  5, 5, 5, 3,  5, 5, 5, 5,  5, 5, 5, 5,
@@ -59,7 +59,7 @@ const sdsl::int_vector<8> Alphabet::DEFAULT_CHAR2COMP =
   5, 5, 5, 5,  5, 5, 5, 5,  5, 5, 5, 5,  5, 5, 5, 5
 };
 
-const sdsl::int_vector<8> Alphabet::DEFAULT_COMP2CHAR = { '$', 'A', 'C', 'G', 'T', 'N', '#' };
+const sdsl::int_vector<8> Alphabet::DEFAULT_COMP2CHAR = { '$', 'A', 'C', 'G', 'T', 'N' };
 
 //------------------------------------------------------------------------------
 
@@ -70,14 +70,14 @@ Alphabet::Alphabet() :
 {
 }
 
-Alphabet::Alphabet(const Alphabet& a)
+Alphabet::Alphabet(const Alphabet& source)
 {
-  this->copy(a);
+  this->copy(source);
 }
 
-Alphabet::Alphabet(Alphabet&& a)
+Alphabet::Alphabet(Alphabet&& source)
 {
-  *this = std::move(a);
+  *this = std::move(source);
 }
 
 Alphabet::Alphabet(const sdsl::int_vector<64>& counts,
@@ -94,42 +94,42 @@ Alphabet::~Alphabet()
 }
 
 void
-Alphabet::copy(const Alphabet& a)
+Alphabet::copy(const Alphabet& source)
 {
-  this->char2comp = a.char2comp;
-  this->comp2char = a.comp2char;
-  this->C = a.C;
-  this->sigma = a.sigma;
+  this->char2comp = source.char2comp;
+  this->comp2char = source.comp2char;
+  this->C = source.C;
+  this->sigma = source.sigma;
 }
 
 void
-Alphabet::swap(Alphabet& a)
+Alphabet::swap(Alphabet& source)
 {
-  if(this != &a)
+  if(this != &source)
   {
-    this->char2comp.swap(a.char2comp);
-    this->comp2char.swap(a.comp2char);
-    this->C.swap(a.C);
-    std::swap(this->sigma, a.sigma);
+    this->char2comp.swap(source.char2comp);
+    this->comp2char.swap(source.comp2char);
+    this->C.swap(source.C);
+    std::swap(this->sigma, source.sigma);
   }
 }
 
 Alphabet&
-Alphabet::operator=(const Alphabet& a)
+Alphabet::operator=(const Alphabet& source)
 {
-  if(this != &a) { this->copy(a); }
+  if(this != &source) { this->copy(source); }
   return *this;
 }
 
 Alphabet&
-Alphabet::operator=(Alphabet&& a)
+Alphabet::operator=(Alphabet&& source)
 {
-  if(this != &a)
+  if(this != &source)
   {
-    this->char2comp = std::move(a.char2comp);
-    this->comp2char = std::move(a.comp2char);
-    this->C = std::move(a.C);
-    this->sigma = a.sigma;
+    this->char2comp = std::move(source.char2comp);
+    this->comp2char = std::move(source.comp2char);
+    this->C = std::move(source.C);
+    this->sigma = source.sigma;
   }
   return *this;
 }
@@ -163,14 +163,14 @@ BlockArray::BlockArray()
   this->bytes = 0;
 }
 
-BlockArray::BlockArray(const BlockArray& b)
+BlockArray::BlockArray(const BlockArray& source)
 {
-  this->copy(b);
+  this->copy(source);
 }
 
-BlockArray::BlockArray(BlockArray&& b)
+BlockArray::BlockArray(BlockArray&& source)
 {
-  *this = std::move(b);
+  *this = std::move(source);
 }
 
 BlockArray::~BlockArray()
@@ -179,19 +179,19 @@ BlockArray::~BlockArray()
 }
 
 void
-BlockArray::copy(const BlockArray& b)
+BlockArray::copy(const BlockArray& source)
 {
   this->clear();
-  this->data = std::vector<byte_type*>(b.data.size());
-  this->bytes = b.bytes;
+  this->data = std::vector<byte_type*>(source.data.size());
+  this->bytes = source.bytes;
 
   for(size_type i = 0; i < this->data.size(); i++)
   {
-    if(b.data[i] == 0) { this->data[i] = 0; }
+    if(source.data[i] == 0) { this->data[i] = 0; }
     else
     {
       this->data[i] = new byte_type(BLOCK_SIZE);
-      std::memcpy((void*)(this->data[i]), (void*)(b.data[i]), BLOCK_SIZE);
+      std::memcpy((void*)(this->data[i]), (void*)(source.data[i]), BLOCK_SIZE);
     }
   }
 }
@@ -207,36 +207,36 @@ BlockArray::clear()
 }
 
 void
-BlockArray::clear(size_type _block)
+BlockArray::clear(BlockArray::size_type _block)
 {
   delete[] this->data[_block]; this->data[_block] = 0;
 }
 
 void
-BlockArray::swap(BlockArray& b)
+BlockArray::swap(BlockArray& source)
 {
-  if(this != &b)
+  if(this != &source)
   {
-    this->data.swap(b.data);
-    std::swap(this->bytes, b.bytes);
+    this->data.swap(source.data);
+    std::swap(this->bytes, source.bytes);
   }
 }
 
 BlockArray&
-BlockArray::operator=(const BlockArray& b)
+BlockArray::operator=(const BlockArray& source)
 {
-  if(this != &b) { this->copy(b); }
+  if(this != &source) { this->copy(source); }
   return *this;
 }
 
 BlockArray&
-BlockArray::operator=(BlockArray&& b)
+BlockArray::operator=(BlockArray&& source)
 {
-  if(this != &b)
+  if(this != &source)
   {
     this->clear();
-    this->data.swap(b.data);
-    this->bytes = std::move(b.bytes);
+    this->data.swap(source.data);
+    this->bytes = std::move(source.bytes);
   }
   return *this;
 }
@@ -267,6 +267,105 @@ BlockArray::load(std::istream& in)
     this->data[block(i)] = new byte_type[BLOCK_SIZE];
     in.read((char*)(this->data[block(i)]), std::min(BLOCK_SIZE, this->bytes - i));
   }
+}
+
+//------------------------------------------------------------------------------
+
+CumulativeArray::CumulativeArray()
+{
+  this->m_size = 0;
+}
+
+CumulativeArray::CumulativeArray(const CumulativeArray& source)
+{
+  this->copy(source);
+}
+
+CumulativeArray::CumulativeArray(CumulativeArray&& source)
+{
+  *this = std::move(source);
+}
+
+CumulativeArray::~CumulativeArray()
+{
+}
+
+void
+CumulativeArray::copy(const CumulativeArray& source)
+{
+  this->data = source.data;
+  this->rank = source.rank;
+  this->select_1 = source.select_1;
+  this->select_0 = source.select_0;
+  this->setVectors();
+  this->m_size = source.m_size;
+}
+
+void
+CumulativeArray::setVectors()
+{
+  this->rank.set_vector(&(this->data));
+  this->select_1.set_vector(&(this->data));
+  this->select_0.set_vector(&(this->data));
+}
+
+void
+CumulativeArray::swap(CumulativeArray& source)
+{
+  if(this != &source)
+  {
+    this->data.swap(source.data);
+    util::swap_support(this->rank, source.rank, &(this->data), &(source.data));
+    util::swap_support(this->select_1, source.select_1, &(this->data), &(source.data));
+    util::swap_support(this->select_0, source.select_0, &(this->data), &(source.data));
+    std::swap(this->m_size, source.m_size);
+  }
+}
+
+CumulativeArray&
+CumulativeArray::operator=(const CumulativeArray& source)
+{
+  if(this != &source) { this->copy(source); }
+  return *this;
+}
+
+CumulativeArray&
+CumulativeArray::operator=(CumulativeArray&& source)
+{
+  if(this != &source)
+  {
+    this->data = std::move(source.data);
+    this->rank = std::move(source.rank);
+    this->select_1 = std::move(source.select_1);
+    this->select_0 = std::move(source.select_0);
+    this->setVectors();
+    this->m_size = source.m_size;
+  }
+  return *this;
+}
+
+CumulativeArray::size_type
+CumulativeArray::serialize(std::ostream& out, structure_tree_node* s, std::string name) const
+{
+  structure_tree_node* child = structure_tree::add_child(s, name, util::class_name(*this));
+  size_type written_bytes = 0;
+  written_bytes += this->data.serialize(out, child, "data");
+  written_bytes += this->rank.serialize(out, child, "rank");
+  written_bytes += this->select_1.serialize(out, child, "select_1");
+  written_bytes += this->select_0.serialize(out, child, "select_0");
+  written_bytes += write_member(this->m_size, out, child, "size");
+  structure_tree::add_size(child, written_bytes);
+  return written_bytes;
+}
+
+void
+CumulativeArray::load(std::istream& in)
+{
+  this->data.load(in);
+  this->rank.load(in, &(this->data));
+  this->select_1.load(in, &(this->data));
+  this->select_0.load(in, &(this->data));
+  read_member(this->m_size, in);
 }
 
 //------------------------------------------------------------------------------
