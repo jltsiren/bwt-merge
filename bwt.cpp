@@ -22,9 +22,7 @@
   SOFTWARE.
 */
 
-#include <sstream>
-
-#include "sequence.h"
+#include "bwt.h"
 
 namespace bwtmerge
 {
@@ -35,14 +33,14 @@ BWT::BWT()
 {
 }
 
-BWT::BWT(const BWT& b)
+BWT::BWT(const BWT& source)
 {
-  this->copy(b);
+  this->copy(source);
 }
 
-BWT::BWT(BWT&& b)
+BWT::BWT(BWT&& source)
 {
-  *this = std::move(b);
+  *this = std::move(source);
 }
 
 BWT::~BWT()
@@ -50,14 +48,14 @@ BWT::~BWT()
 }
 
 void
-BWT::copy(const BWT& b)
+BWT::copy(const BWT& source)
 {
-  this->data = b.data;
-  for(size_type c = 0; c < SIGMA; c++) { this->samples[c] = b.samples[c]; }
+  this->data = source.data;
+  for(size_type c = 0; c < SIGMA; c++) { this->samples[c] = source.samples[c]; }
 
-  this->block_boundaries = b.block_boundaries;
-  this->block_rank = b.block_rank;
-  this->block_select = b.block_select;
+  this->block_boundaries = source.block_boundaries;
+  this->block_rank = source.block_rank;
+  this->block_select = source.block_select;
   this->setVectors();
 }
 
@@ -69,47 +67,47 @@ BWT::setVectors()
 }
 
 void
-BWT::swap(BWT& b)
+BWT::swap(BWT& source)
 {
-  if(this != &b)
+  if(this != &source)
   {
-    this->data.swap(s.data);
-    for(size_type c = 0; c < SIGMA; c++) { this->samples[c].swap(b.samples[c]); }
-    this->block_boundaries.swap(b.block_boundaries);
-    util::swap_support(this->block_rank, b.block_rank, &(this->block_boundaries), &(b.block_boundaries));
-    util::swap_support(this->block_select, b.block_select, &(this->block_boundaries), &(b.block_boundaries));
+    this->data.swap(source.data);
+    for(size_type c = 0; c < SIGMA; c++) { this->samples[c].swap(source.samples[c]); }
+    this->block_boundaries.swap(source.block_boundaries);
+    sdsl::util::swap_support(this->block_rank, source.block_rank, &(this->block_boundaries), &(source.block_boundaries));
+    sdsl::util::swap_support(this->block_select, source.block_select, &(this->block_boundaries), &(source.block_boundaries));
   }
 }
 
 BWT&
-BWT::operator=(const BWT& b)
+BWT::operator=(const BWT& source)
 {
-  if(this != &b) { this->copy(b); }
+  if(this != &source) { this->copy(source); }
   return *this;
 }
 
 BWT&
-BWT::operator=(BWT&& b)
+BWT::operator=(BWT&& source)
 {
-  if(this != &b)
+  if(this != &source)
   {
-    this->data = std::move(b.data);
-    for(size_type c = 0; c < SIGMA; c++) { this->samples[c] = std::move(b.samples[c]); }
+    this->data = std::move(source.data);
+    for(size_type c = 0; c < SIGMA; c++) { this->samples[c] = std::move(source.samples[c]); }
 
-    this->block_boundaries = std::move(b.block_boundaries);
-    this->block_rank = std::move(b.block_rank);
-    this->block_select = std::move(b.block_select);
+    this->block_boundaries = std::move(source.block_boundaries);
+    this->block_rank = std::move(source.block_rank);
+    this->block_select = std::move(source.block_select);
     this->setVectors();
   }
   return *this;
 }
 
 BWT::size_type
-BWT::serialize(std::ostream& out, structure_tree_node* s, std::string name) const
+BWT::serialize(std::ostream& out, sdsl::structure_tree_node* s, std::string name) const
 {
-  structure_tree_node* child = structure_tree::add_child(s, name, util::class_name(*this));
+  sdsl::structure_tree_node* child = sdsl::structure_tree::add_child(s, name, sdsl::util::class_name(*this));
   size_type written_bytes = 0;
-  written_bytes += write_vector(this->data, out, child, "data");
+  written_bytes += this->data.serialize(out, child, "data");
   for(size_type c = 0; c < SIGMA; c++)
   {
     std::stringstream ss; ss << "samples_" << c;
@@ -118,14 +116,14 @@ BWT::serialize(std::ostream& out, structure_tree_node* s, std::string name) cons
   written_bytes += this->block_boundaries.serialize(out, child, "block_boundaries");
   written_bytes += this->block_rank.serialize(out, child, "block_rank");
   written_bytes += this->block_select.serialize(out, child, "block_select");
-  structure_tree::add_size(child, written_bytes);
+  sdsl::structure_tree::add_size(child, written_bytes);
   return written_bytes;
 }
 
 void
 BWT::load(std::istream& in)
 {
-  read_vector(this->data, in);
+  this->data.load(in);
   for(size_type c = 0; c < SIGMA; c++) { this->samples[c].load(in); }
 
   this->block_boundaries.load(in);
@@ -135,7 +133,6 @@ BWT::load(std::istream& in)
 
 //------------------------------------------------------------------------------
 
-template<>
 void
 characterCounts(const BWT& sequence, sdsl::int_vector<64>& counts)
 {

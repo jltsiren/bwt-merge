@@ -194,46 +194,54 @@ struct Run
 
   inline static byte_type basicRun(comp_type comp, size_type length)
   {
-    return c + SIGMA * (length - 1);
+    return comp + SIGMA * (length - 1);
   }
 
   template<class ByteArray>
-  static void write(ByteArray& array, comp_type comp, size_type length)
+  static void write(ByteArray& array, comp_type comp, size_type length);
+
+  /*
+    Write an extension to the run using 7 bits/byte, least significant byte first.
+    The high-order bit tells whether the extension continues to the next byte.
+  */
+  template<class ByteArray>
+  static void writeExtension(ByteArray& array, size_type length);
+};
+
+template<class ByteArray>
+void
+Run::write(ByteArray& array, comp_type comp, size_type length)
+{
+  while(length > 0)
   {
-    while(length > 0)
-    {
-      size_type bytes_remaining = BLOCK_SIZE - (array.size() % BLOCK_SIZE) - 1;
-      size_type basic_length = std::min(length, (bytes_remaining > 0 ? MAX_RUN : MAX_RUN - 1));
-      array.push_back(basicRun(comp, basic_length)); length -= basic_length;
-      if(length == 0) { return; }
+    size_type bytes_remaining = BLOCK_SIZE - (array.size() % BLOCK_SIZE) - 1;
+    size_type basic_length = std::min(length, (bytes_remaining > 0 ? MAX_RUN : MAX_RUN - 1));
+    array.push_back(basicRun(comp, basic_length)); length -= basic_length;
+    if(length == 0) { return; }
 
-      if(bytes_remaining > 0)
-      {
-        size_type extension_length = length;
-        if(bit_length(length) > DATA_BITS * bytes_remaining)
-        {
-          extension_length = sdsl::bits::lo_set[DATA_BITS * bytes_remaining];
-        }
-        writeExtension(array, extension_length); length -= extension_length;
-      }
-    }
-
-    /*
-      Write an extension to the run using 7 bits/byte, least significant byte first.
-      The high-order bit tells whether the extension continues to the next byte.
-    */
-    template<class ByteArray>
-    static void writeExtension(ByteArray& array, size_type length)
+    if(bytes_remaining > 0)
     {
-      while(length > DATA_MASK)
+      size_type extension_length = length;
+      if(bit_length(length) > DATA_BITS * bytes_remaining)
       {
-        array.push_back((length & DATA_MASK) | NEXT_BYTE);
-        length >>= DATA_BITS;
+        extension_length = sdsl::bits::lo_set[DATA_BITS * bytes_remaining];
       }
-      array.push_back(length);
+      writeExtension(array, extension_length); length -= extension_length;
     }
   }
-};
+}
+
+template<class ByteArray>
+void
+Run::writeExtension(ByteArray& array, size_type length)
+{
+  while(length > DATA_MASK)
+  {
+    array.push_back((length & DATA_MASK) | NEXT_BYTE);
+    length >>= DATA_BITS;
+   }
+  array.push_back(length);
+}
 
 //------------------------------------------------------------------------------
 
@@ -265,16 +273,16 @@ public:
     this->data = sdsl::sd_vector<>(sequence.begin(), sequence.end());
     for(size_type i = this->size() - 1; i > 0; i--) { sequence[i] -= sequence[i - 1] + 1; }
 
-    util::init_support(this->rank, &(this->data));
-    util::init_support(this->select_1, &(this->data));
-    util::init_support(this->select_0, &(this->data));
+    sdsl::util::init_support(this->rank, &(this->data));
+    sdsl::util::init_support(this->select_1, &(this->data));
+    sdsl::util::init_support(this->select_0, &(this->data));
   }
 
   void swap(CumulativeArray& source);
   CumulativeArray& operator=(const CumulativeArray& source);
   CumulativeArray& operator=(CumulativeArray&& source);
 
-  size_type serialize(std::ostream& out, structure_tree_node* v = nullptr, std::string name = "") const;
+  size_type serialize(std::ostream& out, sdsl::structure_tree_node* v = nullptr, std::string name = "") const;
   void load(std::istream& in);
 
   // The number of elements.

@@ -52,7 +52,7 @@ public:
   BWT& operator=(const BWT& b);
   BWT& operator=(BWT&& b);
 
-  size_type serialize(std::ostream& out, structure_tree_node* v = nullptr, std::string name = "") const;
+  size_type serialize(std::ostream& out, sdsl::structure_tree_node* v = nullptr, std::string name = "") const;
   void load(std::istream& i);
 
 //------------------------------------------------------------------------------
@@ -184,12 +184,12 @@ public:
 
 //------------------------------------------------------------------------------
 
-  BlockArray                 data;
-  CumulativeArray            samples[SIGMA];
+  BlockArray                       data;
+  CumulativeArray                  samples[SIGMA];
 
-  sd_vector<>                block_boundaries; // Marks the last sequence position in each block.
-  sd_vector<>::rank_1_type   block_rank;
-  sd_vector<>::select_1_type block_select;
+  sdsl::sd_vector<>                block_boundaries; // Marks the last sequence position in each block.
+  sdsl::sd_vector<>::rank_1_type   block_rank;
+  sdsl::sd_vector<>::select_1_type block_select;
 
 private:
   void copy(const BWT& b);
@@ -198,8 +198,7 @@ private:
 
 //------------------------------------------------------------------------------
 
-template<>
-void characterCounts(const RLSequence& sequence, sdsl::int_vector<64>& counts);
+void characterCounts(const BWT& sequence, sdsl::int_vector<64>& counts);
 
 //------------------------------------------------------------------------------
 

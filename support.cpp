@@ -190,7 +190,7 @@ BlockArray::copy(const BlockArray& source)
     if(source.data[i] == 0) { this->data[i] = 0; }
     else
     {
-      this->data[i] = new byte_type(BLOCK_SIZE);
+      this->data[i] = new byte_type[BLOCK_SIZE];
       std::memcpy((void*)(this->data[i]), (void*)(source.data[i]), BLOCK_SIZE);
     }
   }
@@ -261,7 +261,7 @@ BlockArray::load(std::istream& in)
 {
   this->clear();
   sdsl::read_member(this->bytes, in);
-  this->data = std::vector((this->bytes + BLOCK_SIZE - 1) / BLOCK_SIZE, 0);
+  this->data = std::vector<byte_type*>((this->bytes + BLOCK_SIZE - 1) / BLOCK_SIZE, 0);
   for(size_type i = 0; i < this->bytes; i++)
   {
     this->data[block(i)] = new byte_type[BLOCK_SIZE];
@@ -315,9 +315,9 @@ CumulativeArray::swap(CumulativeArray& source)
   if(this != &source)
   {
     this->data.swap(source.data);
-    util::swap_support(this->rank, source.rank, &(this->data), &(source.data));
-    util::swap_support(this->select_1, source.select_1, &(this->data), &(source.data));
-    util::swap_support(this->select_0, source.select_0, &(this->data), &(source.data));
+    sdsl::util::swap_support(this->rank, source.rank, &(this->data), &(source.data));
+    sdsl::util::swap_support(this->select_1, source.select_1, &(this->data), &(source.data));
+    sdsl::util::swap_support(this->select_0, source.select_0, &(this->data), &(source.data));
     std::swap(this->m_size, source.m_size);
   }
 }
@@ -345,16 +345,16 @@ CumulativeArray::operator=(CumulativeArray&& source)
 }
 
 CumulativeArray::size_type
-CumulativeArray::serialize(std::ostream& out, structure_tree_node* s, std::string name) const
+CumulativeArray::serialize(std::ostream& out, sdsl::structure_tree_node* s, std::string name) const
 {
-  structure_tree_node* child = structure_tree::add_child(s, name, util::class_name(*this));
+  sdsl::structure_tree_node* child = sdsl::structure_tree::add_child(s, name, sdsl::util::class_name(*this));
   size_type written_bytes = 0;
   written_bytes += this->data.serialize(out, child, "data");
   written_bytes += this->rank.serialize(out, child, "rank");
   written_bytes += this->select_1.serialize(out, child, "select_1");
   written_bytes += this->select_0.serialize(out, child, "select_0");
-  written_bytes += write_member(this->m_size, out, child, "size");
-  structure_tree::add_size(child, written_bytes);
+  written_bytes += sdsl::write_member(this->m_size, out, child, "size");
+  sdsl::structure_tree::add_size(child, written_bytes);
   return written_bytes;
 }
 
@@ -365,7 +365,7 @@ CumulativeArray::load(std::istream& in)
   this->rank.load(in, &(this->data));
   this->select_1.load(in, &(this->data));
   this->select_0.load(in, &(this->data));
-  read_member(this->m_size, in);
+  sdsl::read_member(this->m_size, in);
 }
 
 //------------------------------------------------------------------------------
