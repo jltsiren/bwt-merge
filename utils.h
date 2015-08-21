@@ -112,6 +112,14 @@ inline size_type fnv1a_hash(size_type val, size_type seed)
   return seed;
 }
 
+template<class ByteArray>
+size_type fnv1a_hash(ByteArray& array)
+{
+  size_type res = FNV_OFFSET_BASIS;
+  for(size_type i = 0; i < array.size(); i++) { res = fnv1a_hash((byte_type)(array[i]), res); }
+  return res;
+}
+
 //------------------------------------------------------------------------------
 
 inline double
@@ -136,6 +144,7 @@ const size_type DEFAULT_INDENT = 18;
 
 void printHeader(const std::string& header, size_type indent = DEFAULT_INDENT);
 void printSize(const std::string& header, size_type bytes, size_type data_size, size_type indent = DEFAULT_INDENT);
+void printTime(const std::string& header, size_type found, size_type matches, size_type bytes, double seconds, size_type indent = DEFAULT_INDENT);
 void printTime(const std::string& header, size_type queries, double seconds, size_type indent = DEFAULT_INDENT);
 
 //------------------------------------------------------------------------------
@@ -253,6 +262,15 @@ findChar(const AlphabetType& alpha, size_type bwt_pos)
   return comp;
 }
 
+// Returns (LF(i), BWT[i]).
+template<class BWTType, class AlphabetType>
+inline range_type
+LF(const BWTType& bwt, const AlphabetType& alpha, size_type i)
+{
+  auto temp = bwt.inverse_select(i);
+  return range_type(temp.first + alpha.C[temp.second], temp.second);
+}
+
 template<class BWTType, class AlphabetType>
 inline size_type
 LF(const BWTType& bwt, const AlphabetType& alpha, size_type i, comp_type comp)
@@ -265,6 +283,14 @@ inline range_type
 LF(const BWTType& bwt, const AlphabetType& alpha, range_type range, comp_type comp)
 {
   return range_type(LF(bwt, alpha, range.first, comp), LF(bwt, alpha, range.second + 1, comp) - 1);
+}
+
+template<class BWTType, class AlphabetType>
+inline size_type
+Psi(const BWTType& bwt, const AlphabetType& alpha, size_type i)
+{
+  comp_type comp = findChar(alpha, i);
+  return bwt.select(i + 1 - alpha.C[comp], comp);
 }
 
 //------------------------------------------------------------------------------

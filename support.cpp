@@ -89,6 +89,28 @@ Alphabet::Alphabet(const sdsl::int_vector<64>& counts,
   for(size_type i = 0; i < counts.size(); i++) { this->C[i + 1] = this->C[i] + counts[i]; }
 }
 
+Alphabet::Alphabet(size_type _sigma)
+{
+  if(_sigma == 0 || _sigma > MAX_SIGMA)
+  {
+    std::cerr << "Alphabet::Alphabet(): Invalid alphabet size: " << _sigma << std::endl;
+    return;
+  }
+
+  this->sigma = _sigma;
+  this->char2comp = sdsl::int_vector<8>(MAX_SIGMA, 0);
+  this->comp2char = sdsl::int_vector<8>(this->sigma, 0);
+  this->C = sdsl::int_vector<64>(this->sigma + 1, 0);
+  for(size_type c = 0; c < this->sigma; c++)
+  {
+    this->char2comp[c] = this->comp2char[c] = c;
+  }
+  for(size_type c = this->sigma; c < MAX_SIGMA; c++)
+  {
+    this->char2comp[c] = 0;
+  }
+}
+
 Alphabet::~Alphabet()
 {
 }
@@ -154,6 +176,16 @@ Alphabet::load(std::istream& in)
   this->comp2char.load(in);
   this->C.load(in);
   sdsl::read_member(this->sigma, in);
+}
+
+Alphabet
+rfmAlphabet()
+{
+  Alphabet alpha;
+  std::swap(alpha.comp2char[4], alpha.comp2char[5]);
+  std::swap(alpha.char2comp['N'], alpha.char2comp['T']);
+  std::swap(alpha.char2comp['n'], alpha.char2comp['t']);
+  return alpha;
 }
 
 //------------------------------------------------------------------------------

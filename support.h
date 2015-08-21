@@ -32,9 +32,6 @@ namespace bwtmerge
 
 //------------------------------------------------------------------------------
 
-template<class ByteVector>
-void characterCounts(const ByteVector& sequence, const sdsl::int_vector<8>& char2comp, sdsl::int_vector<64>& counts);
-
 /*
   This replaces the SDSL byte_alphabet. The main improvements are:
     - The alphabet can be built from an existing sequence.
@@ -56,32 +53,16 @@ public:
   ~Alphabet();
 
   /*
-    ByteVector only has to support operator[] and size(). If there is a clearly faster way for
-    sequential access, function characterCounts() should be specialized.
-  */
-  template<class ByteVector>
-  explicit Alphabet(const ByteVector& sequence,
-    const sdsl::int_vector<8>& _char2comp = DEFAULT_CHAR2COMP,
-    const sdsl::int_vector<8>& _comp2char = DEFAULT_COMP2CHAR) :
-    char2comp(_char2comp), comp2char(_comp2char),
-    C(sdsl::int_vector<64>(_comp2char.size() + 1, 0)),
-    sigma(_comp2char.size())
-  {
-    if(sequence.size() == 0) { return; }
-
-    characterCounts(sequence, this->char2comp, this->C);
-    for(size_type i = 0, sum = 0; i < this->C.size(); i++)
-    {
-      size_type temp = this->C[i]; this->C[i] = sum; sum += temp;
-    }
-  }
-
-  /*
     The counts array holds character counts for all comp values.
   */
   explicit Alphabet(const sdsl::int_vector<64>& counts,
     const sdsl::int_vector<8>& _char2comp = DEFAULT_CHAR2COMP,
     const sdsl::int_vector<8>& _comp2char = DEFAULT_COMP2CHAR);
+
+  /*
+    Creates an alphabet of given size, where char values are also comp values.
+  */
+  explicit Alphabet(size_type _sigma);
 
   void swap(Alphabet& source);
   Alphabet& operator=(const Alphabet& source);
@@ -98,13 +79,10 @@ private:
   void copy(const Alphabet& a);
 };  // class Alphabet
 
-template<class ByteVector>
-void
-characterCounts(const ByteVector& sequence, const sdsl::int_vector<8>& char2comp, sdsl::int_vector<64>& counts)
-{
-  for(size_type c = 0; c < counts.size(); c++) { counts[c] = 0; }
-  for(size_type i = 0; i < sequence.size(); i++) { counts[char2comp[sequence[i]]]++; }
-}
+/*
+  An alphabet that maps \0ACGNT to 0-5.
+*/
+Alphabet rfmAlphabet();
 
 //------------------------------------------------------------------------------
 
@@ -175,22 +153,7 @@ struct Run
     Returns (comp value, run length) and updates i to point past the run.
   */
   template<class ByteArray>
-  static range_type read(const ByteArray& array, size_type& i)
-  {
-    range_type run(array[i] % SIGMA, array[i] / SIGMA + 1); i++;
-    if(run.second >= MAX_RUN)
-    {
-      size_type offset = 0;
-      run.second += array[i] & DATA_MASK;
-      while(array[i] & NEXT_BYTE)
-      {
-        i++; offset += DATA_BITS;
-        run.second += ((size_type)(array[i] & DATA_MASK)) << offset;
-      }
-      i++;
-    }
-    return run;
-  }
+  static range_type read(const ByteArray& array, size_type& i);
 
   inline static byte_type basicRun(comp_type comp, size_type length)
   {
@@ -209,15 +172,40 @@ struct Run
 };
 
 template<class ByteArray>
+range_type
+Run::read(const ByteArray& array, size_type& i)
+{
+  range_type run(array[i] % SIGMA, array[i] / SIGMA + 1); i++;
+  if(run.second >= MAX_RUN)
+  {
+    size_type offset = 0;
+    run.second += array[i] & DATA_MASK;
+    while(array[i] & NEXT_BYTE)
+    {
+      i++; offset += DATA_BITS;
+      run.second += ((size_type)(array[i] & DATA_MASK)) << offset;
+    }
+    i++;
+  }
+  return run;
+}
+
+template<class ByteArray>
 void
 Run::write(ByteArray& array, comp_type comp, size_type length)
 {
   while(length > 0)
   {
-    size_type bytes_remaining = BLOCK_SIZE - (array.size() % BLOCK_SIZE) - 1;
-    size_type basic_length = std::min(length, (bytes_remaining > 0 ? MAX_RUN : MAX_RUN - 1));
+    if(length < MAX_RUN)
+    {
+      array.push_back(basicRun(comp, length));
+      return;
+    }
+
+    size_type bytes_remaining = BLOCK_SIZE - (array.size() % BLOCK_SIZE);
+    size_type basic_length = (bytes_remaining > 1 ? MAX_RUN : MAX_RUN - 1);
     array.push_back(basicRun(comp, basic_length)); length -= basic_length;
-    if(length == 0) { return; }
+    bytes_remaining--;
 
     if(bytes_remaining > 0)
     {

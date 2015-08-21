@@ -44,16 +44,36 @@ public:
   const static size_type SIGMA       = Run::SIGMA;
 
   BWT();
-  BWT(const BWT& b);
-  BWT(BWT&& b);
+  BWT(const BWT& source);
+  BWT(BWT&& source);
   ~BWT();
 
-  void swap(BWT& b);
-  BWT& operator=(const BWT& b);
-  BWT& operator=(BWT&& b);
+  void swap(BWT& source);
+  BWT& operator=(const BWT& source);
+  BWT& operator=(BWT&& source);
 
   size_type serialize(std::ostream& out, sdsl::structure_tree_node* v = nullptr, std::string name = "") const;
   void load(std::istream& i);
+
+//------------------------------------------------------------------------------
+
+  template<class CharArray>
+  BWT(CharArray& array, const Alphabet& alpha)
+  {
+    if(array.size() == 0) { return; }
+
+    comp_type comp = alpha.char2comp[array[0]];
+    size_type length = 1;
+    for(size_type i = 1; i < array.size(); i++)
+    {
+      comp_type c = alpha.char2comp[array[i]];
+      if(c == comp) { length++; }
+      else { Run::write(this->data, comp, length); comp = c; length = 1; }
+    }
+    Run::write(this->data, comp, length);
+
+    this->build();
+  }
 
 //------------------------------------------------------------------------------
 
@@ -182,6 +202,10 @@ public:
 
   inline byte_type rawData(size_type i) const { return this->data[i]; }
 
+  void characterCounts(sdsl::int_vector<64>& counts);
+
+  size_type hash() const;
+
 //------------------------------------------------------------------------------
 
   BlockArray                       data;
@@ -192,13 +216,10 @@ public:
   sdsl::sd_vector<>::select_1_type block_select;
 
 private:
-  void copy(const BWT& b);
+  void copy(const BWT& source);
   void setVectors();
+  void build();
 };  // class BWT
-
-//------------------------------------------------------------------------------
-
-void characterCounts(const BWT& sequence, sdsl::int_vector<64>& counts);
 
 //------------------------------------------------------------------------------
 

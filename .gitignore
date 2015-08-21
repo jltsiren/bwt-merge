@@ -1,5 +1,7 @@
 *.o
 *.a
 
+bwt_merge
+
 .DS_Store
 

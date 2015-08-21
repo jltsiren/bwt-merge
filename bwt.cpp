@@ -134,16 +134,72 @@ BWT::load(std::istream& in)
 //------------------------------------------------------------------------------
 
 void
-characterCounts(const BWT& sequence, sdsl::int_vector<64>& counts)
+BWT::build()
 {
-  for(uint64_t c = 0; c < counts.size(); c++) { counts[c] = 0; }
-
-  uint64_t rle_pos = 0, seq_pos = 0;
-  while(rle_pos < sequence.bytes())
+  std::vector<size_type> block_ends;
+  size_type seq_pos = 0, rle_pos = 0;
+  while(rle_pos < this->bytes())
   {
-    range_type run = Run::read(sequence.data, rle_pos);
+    range_type run = Run::read(this->data, rle_pos); seq_pos += run.second;
+    if(rle_pos >= this->bytes() || rle_pos % SAMPLE_RATE == 0) { block_ends.push_back(seq_pos - 1); }
+  }
+
+  size_type blocks = block_ends.size();
+  {
+    this->block_boundaries = sdsl::sd_vector<>(block_ends.begin(), block_ends.end());
+    sdsl::util::clear(block_ends);
+    sdsl::util::init_support(this->block_rank, &(this->block_boundaries));
+    sdsl::util::init_support(this->block_select, &(this->block_boundaries));
+  }
+
+  sdsl::int_vector<0> counts[SIGMA];
+  for(size_type c = 0; c < SIGMA; c++)
+  {
+    counts[c] = sdsl::int_vector<0>(blocks, 0, bit_length(this->size()));
+  }
+  for(size_type block = 0; block < blocks; block++)
+  {
+    size_type limit = std::min(this->bytes(), (block + 1) * SAMPLE_RATE);
+    rle_pos = block * SAMPLE_RATE;
+    while(rle_pos < limit)
+    {
+      range_type run = Run::read(this->data, rle_pos);
+      counts[run.first][block] += run.second;
+    }
+  }
+  for(size_type c = 0; c < SIGMA; c++)
+  {
+    this->samples[c] = CumulativeArray(counts[c]);
+    sdsl::util::clear(counts[c]);
+  }
+}
+
+//------------------------------------------------------------------------------
+
+void
+BWT::characterCounts(sdsl::int_vector<64>& counts)
+{
+  counts = sdsl::int_vector<64>(SIGMA, 0);
+
+  size_type rle_pos = 0, seq_pos = 0;
+  while(rle_pos < this->bytes())
+  {
+    range_type run = Run::read(this->data, rle_pos);
     counts[run.first] += run.second; seq_pos += run.second;
   }
+}
+
+size_type
+BWT::hash() const
+{
+  size_type res = FNV_OFFSET_BASIS;
+  size_type rle_pos = 0;
+  while(rle_pos < this->bytes())
+  {
+    range_type run = Run::read(this->data, rle_pos);
+    for(size_type i = 0; i < run.second; i++) { res = fnv1a_hash((byte_type)(run.first), res); }
+  }
+  return res;
 }
 
 //------------------------------------------------------------------------------

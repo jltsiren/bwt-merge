@@ -50,6 +50,14 @@ printSize(const std::string& header, size_type bytes, size_type data_size, size_
 }
 
 void
+printTime(const std::string& header, size_type found, size_type matches, size_type bytes, double seconds, size_type indent)
+{
+  printHeader(header, indent);
+  std::cout << "Found " << found << " patterns with " << matches << " occ in "
+            << seconds << " seconds (" << (inMegabytes(bytes) / seconds) << " MB/s)" << std::endl;
+}
+
+void
 printTime(const std::string& header, size_type queries, double seconds, size_type indent)
 {
   printHeader(header, indent);

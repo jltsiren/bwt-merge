@@ -15,13 +15,13 @@ OTHER_FLAGS=$(RUSAGE_FLAGS) $(PARALLEL_FLAGS) $(OUTPUT_FLAGS)
 
 include $(SDSL_DIR)/Make.helper
 CXX_FLAGS=$(MY_CXX_FLAGS) $(OTHER_FLAGS) $(MY_CXX_OPT_FLAGS) -I$(INC_DIR)
-LIBOBJS=bwt.o support.o utils.o
+LIBOBJS=bwt.o fmi.o support.o utils.o
 SOURCES=$(wildcard *.cpp)
 HEADERS=$(wildcard *.h)
 OBJS=$(SOURCES:.cpp=.o)
 LIBS=-L$(LIB_DIR) -lsdsl -ldivsufsort -ldivsufsort64
 LIBRARY=libbwtmerge.a
-#PROGRAMS=bwt_merge
+PROGRAMS=bwt_merge
 
 all: $(LIBRARY) $(PROGRAMS)
 
@@ -31,8 +31,8 @@ all: $(LIBRARY) $(PROGRAMS)
 $(LIBRARY):$(LIBOBJS)
 	ar rcs $@ $(LIBOBJS)
 
-#bwt_merge:bwt_merge.o $(LIBRARY)
-#	$(MY_CXX) $(CXX_FLAGS) -o $@ $< $(LIBRARY) $(LIBS)
+bwt_merge:bwt_merge.o $(LIBRARY)
+	$(MY_CXX) $(CXX_FLAGS) -o $@ $< $(LIBRARY) $(LIBS)
 
 clean:
 	rm -f $(PROGRAMS) $(OBJS) $(LIBRARY)
