@@ -90,6 +90,7 @@ class BlockArray
 {
 public:
   typedef bwtmerge::size_type size_type;
+  typedef bwtmerge::byte_type value_type;
   const static size_type BLOCK_SIZE = MEGABYTE;
 
   BlockArray();
@@ -108,21 +109,33 @@ public:
   inline static size_type offset(size_type i) { return i % BLOCK_SIZE; }
 
   void clear();
-  void clear(size_type _block);
 
-  inline byte_type operator[] (size_type i) const
+  void clear(size_type _block)
+  {
+    delete[] this->data[_block]; this->data[_block] = 0;
+  }
+
+  /*
+    Removes the block before block(i).
+  */
+  void clearUntil(size_type i)
+  {
+    if(block(i) > 0 && this->data[block(i) - 1] != 0) { this->clear(block(i) - 1); }
+  }
+
+  inline value_type operator[] (size_type i) const
   {
     return this->data[block(i)][offset(i)];
   }
 
-  inline byte_type& operator[] (size_type i)
+  inline value_type& operator[] (size_type i)
   {
     return this->data[block(i)][offset(i)];
   }
 
-  inline void push_back(byte_type value)
+  inline void push_back(value_type value)
   {
-    if(offset(this->bytes) == 0) { this->data.push_back(new byte_type[BLOCK_SIZE]); }
+    if(offset(this->bytes) == 0) { this->data.push_back(new value_type[BLOCK_SIZE]); }
     (*this)[this->bytes] = value;
     this->bytes++;
   }
@@ -130,106 +143,131 @@ public:
   size_type serialize(std::ostream& out, sdsl::structure_tree_node* v = nullptr, std::string name = "") const;
   void load(std::istream& in);
 
-  std::vector<byte_type*> data;
-  size_type               bytes;
+  std::vector<value_type*> data;
+  size_type                bytes;
 
 private:
-  void copy(const BlockArray& b);
+  void copy(const BlockArray& source);
 };  // class BlockArray
 
 //------------------------------------------------------------------------------
 
-struct Run
+/*
+  Encodes unsigned integers as byte sequences. Each byte contains 7 bits of data
+  and one bit telling whether the encoding continues in the next byte. The data is
+  stored in LSB order.
+*/
+
+struct ByteCode
 {
-  const static size_type BLOCK_SIZE = 64; // No run can continue past a block boundary.
-  const static size_type SIGMA      = 6;
-  const static size_type MAX_RUN    = 256 / SIGMA;  // 42; encoded as 6 * 41
+  typedef bwtmerge::size_type    value_type;
+  typedef BlockArray::value_type code_type;
 
   const static size_type DATA_BITS  = 7;
-  const static byte_type DATA_MASK  = 0x7F; // Bits 0-6 contain the data.
-  const static byte_type NEXT_BYTE  = 0x80; // Bit 7 tells whether the extension continues.
+  const static code_type DATA_MASK  = 0x7F;
+  const static code_type NEXT_BYTE  = 0x80;
+
+  /*
+    Reads the next value and updates i to point to the byte after the value.
+  */
+  template<class ByteArray>
+  static value_type read(const ByteArray& array, size_type& i)
+  {
+    size_type offset = 0;
+    value_type res = array[i] & DATA_MASK;
+    while(array[i] & NEXT_BYTE)
+    {
+      i++; offset += DATA_BITS;
+      res += ((value_type)(array[i] & DATA_MASK)) << offset;
+    }
+    i++;
+    return res;
+  }
+
+  /*
+    Encodes the value and stores it in the array using push_back().
+  */
+  template<class ByteArray>
+  static void write(ByteArray& array, value_type value)
+  {
+    while(value > DATA_MASK)
+    {
+      array.push_back((value & DATA_MASK) | NEXT_BYTE);
+      value >>= DATA_BITS;
+    }
+    array.push_back(value);
+  }
+};
+
+//------------------------------------------------------------------------------
+
+/*
+  A run in BWT.
+*/
+
+struct Run
+{
+  typedef bwtmerge::comp_type    comp_type;
+  typedef bwtmerge::size_type    length_type;
+  typedef BlockArray::value_type code_type;
+
+  const static size_type   BLOCK_SIZE = 64; // No run can continue past a block boundary.
+  const static size_type   SIGMA      = 6;
+  const static length_type MAX_RUN    = 256 / SIGMA;  // 42; encoded as 6 * 41
+
+  inline static code_type encodeBasic(comp_type comp, length_type length)
+  {
+    return comp + SIGMA * (length - 1);
+  }
+
+  inline static range_type decodeBasic(code_type code)
+  {
+    return range_type(code % SIGMA, code / SIGMA + 1);
+  }
 
   /*
     Returns (comp value, run length) and updates i to point past the run.
   */
   template<class ByteArray>
-  static range_type read(const ByteArray& array, size_type& i);
-
-  inline static byte_type basicRun(comp_type comp, size_type length)
+  static range_type read(const ByteArray& array, size_type& i)
   {
-    return comp + SIGMA * (length - 1);
+    range_type run = decodeBasic(array[i]); i++;
+    if(run.second >= MAX_RUN) { run.second += ByteCode::read(array, i); }
+    return run;
   }
-
-  template<class ByteArray>
-  static void write(ByteArray& array, comp_type comp, size_type length);
 
   /*
-    Write an extension to the run using 7 bits/byte, least significant byte first.
-    The high-order bit tells whether the extension continues to the next byte.
+    Encodes the run and stores it in the array using push_back(). If the encoding
+    would continue past a block boundary, the run is split in two.
   */
   template<class ByteArray>
-  static void writeExtension(ByteArray& array, size_type length);
-};
-
-template<class ByteArray>
-range_type
-Run::read(const ByteArray& array, size_type& i)
-{
-  range_type run(array[i] % SIGMA, array[i] / SIGMA + 1); i++;
-  if(run.second >= MAX_RUN)
+  static void write(ByteArray& array, comp_type comp, length_type length)
   {
-    size_type offset = 0;
-    run.second += array[i] & DATA_MASK;
-    while(array[i] & NEXT_BYTE)
+    while(length > 0)
     {
-      i++; offset += DATA_BITS;
-      run.second += ((size_type)(array[i] & DATA_MASK)) << offset;
-    }
-    i++;
-  }
-  return run;
-}
-
-template<class ByteArray>
-void
-Run::write(ByteArray& array, comp_type comp, size_type length)
-{
-  while(length > 0)
-  {
-    if(length < MAX_RUN)
-    {
-      array.push_back(basicRun(comp, length));
-      return;
-    }
-
-    size_type bytes_remaining = BLOCK_SIZE - (array.size() % BLOCK_SIZE);
-    size_type basic_length = (bytes_remaining > 1 ? MAX_RUN : MAX_RUN - 1);
-    array.push_back(basicRun(comp, basic_length)); length -= basic_length;
-    bytes_remaining--;
-
-    if(bytes_remaining > 0)
-    {
-      size_type extension_length = length;
-      if(bit_length(length) > DATA_BITS * bytes_remaining)
+      if(length < MAX_RUN)
       {
-        extension_length = sdsl::bits::lo_set[DATA_BITS * bytes_remaining];
+        array.push_back(encodeBasic(comp, length));
+        return;
       }
-      writeExtension(array, extension_length); length -= extension_length;
+
+      size_type bytes_remaining = BLOCK_SIZE - (array.size() % BLOCK_SIZE);
+      length_type basic_length = (bytes_remaining > 1 ? MAX_RUN : MAX_RUN - 1);
+      array.push_back(encodeBasic(comp, basic_length)); length -= basic_length;
+      bytes_remaining--;
+
+      if(bytes_remaining > 0)
+      {
+        length_type extension_length = length;
+        if(bit_length(length) > ByteCode::DATA_BITS * bytes_remaining)
+        {
+          extension_length = sdsl::bits::lo_set[ByteCode::DATA_BITS * bytes_remaining];
+        }
+        ByteCode::write(array, extension_length); length -= extension_length;
+      }
     }
   }
-}
-
-template<class ByteArray>
-void
-Run::writeExtension(ByteArray& array, size_type length)
-{
-  while(length > DATA_MASK)
-  {
-    array.push_back((length & DATA_MASK) | NEXT_BYTE);
-    length >>= DATA_BITS;
-   }
-  array.push_back(length);
-}
+};
 
 //------------------------------------------------------------------------------
 
@@ -242,6 +280,7 @@ class CumulativeArray
 {
 public:
   typedef bwtmerge::size_type size_type;
+  typedef bwtmerge::size_type value_type;
 
   CumulativeArray();
   CumulativeArray(const CumulativeArray& source);
@@ -277,37 +316,37 @@ public:
   inline size_type size() const { return this->m_size; }
 
   // The sum of all elements.
-  inline size_type sum() const { return this->data.size() - this->size(); }
+  inline value_type sum() const { return this->data.size() - this->size(); }
 
   // The sum of the first k elements.
-  inline size_type sum(size_type k) const
+  inline value_type sum(size_type k) const
   {
     if(k == 0) { return 0; }
     if(k > this->size()) { k = this->size(); }
     return this->select_1(k) - k + 1;
   }
 
-  inline size_type operator[](size_type i) const { return this->sum(i + 1) - this->sum(i); }
+  inline value_type operator[](size_type i) const { return this->sum(i + 1) - this->sum(i); }
 
   // The inverse of sum(). Returns the element for item i.
-  inline size_type inverse(size_type i) const
+  inline size_type inverse(value_type i) const
   {
     if(i >= this->sum()) { return this->size(); }
     return this->select_0(i + 1) - i;
   }
 
   // Is item i the last item in its element.
-  inline bool isLast(size_type i) const
+  inline bool isLast(value_type i) const
   {
     if(i >= this->sum()) { return false; }
     return this->data[this->select_0(i + 1) + 1];
   }
 
   // A combination of the above.
-  inline size_type inverse(size_type i, bool& is_last) const
+  inline size_type inverse(value_type i, bool& is_last) const
   {
     if(i >= this->sum()) { is_last = false; return this->size(); }
-    uint64_t temp = this->select_0(i + 1);
+    size_type temp = this->select_0(i + 1);
     is_last = this->data[temp + 1];
     return temp - i;
   }
@@ -316,12 +355,141 @@ public:
   sdsl::sd_vector<>::rank_1_type   rank;
   sdsl::sd_vector<>::select_1_type select_1;
   sdsl::sd_vector<>::select_0_type select_0;
-  size_type                  m_size;  // Number of elements.
+  size_type                        m_size;  // Number of elements.
 
 private:
   void copy(const CumulativeArray& source);
   void setVectors();
 };  // class CumulativeArray
+
+//------------------------------------------------------------------------------
+
+/*
+  A run-length encoded non-decreasing integer array. The non-const iterator is
+  destructive: it deletes the blocks it has progressed past.
+*/
+
+class RLIterator;
+class RLConstIterator;
+
+class RLArray
+{
+public:
+  typedef BlockArray::size_type size_type;
+  typedef bwtmerge::size_type   value_type;
+  typedef bwtmerge::size_type   length_type;
+  typedef std::pair<value_type, length_type> run_type;
+
+  typedef RLIterator      iterator;
+  typedef RLConstIterator const_iterator;
+
+  RLArray();
+  RLArray(const RLArray& source);
+  RLArray(RLArray&& source);
+  ~RLArray();
+
+  /*
+    Builds an RLArray from the source vector. The vector is sorted during construction.
+  */
+  explicit RLArray(std::vector<value_type>& source);
+  explicit RLArray(std::vector<run_type>& source);
+
+  /*
+    Merges the input arrays and deletes their contents.
+  */
+  RLArray(RLArray& a, RLArray& b);
+
+  void swap(RLArray& source);
+  RLArray& operator=(const RLArray& source);
+  RLArray& operator=(RLArray&& source);
+
+  inline size_type size() const { return this->run_count; }
+  inline size_type values() const { return this->value_count; }
+  inline size_type bytes() const { return this->data.size(); }
+
+  size_type serialize(std::ostream& out, sdsl::structure_tree_node* v = nullptr, std::string name = "") const;
+  void load(std::istream& in);
+
+  BlockArray data;
+  size_type  run_count, value_count;
+
+private:
+  void copy(const RLArray& source);
+
+  inline void addRun(value_type value, value_type& prev, length_type length)
+  {
+    ByteCode::write(this->data, value - prev); prev = value;
+    ByteCode::write(this->data, length);
+    this->run_count++; this->value_count += length;
+  }
+};  // class RLArray
+
+class RLIterator
+{
+public:
+  typedef RLArray::size_type  size_type;
+  typedef RLArray::value_type value_type;
+  typedef RLArray::run_type   run_type;
+
+  inline RLIterator(RLArray& _array) :
+    array(_array), pos(0), ptr(0), prev(0), run(0, 0)
+  {
+    this->read();
+  }
+
+  inline run_type operator* () const { return this->run; }
+  inline const run_type* operator-> () const { return &(this->run); }
+  inline void operator++ () { this->pos++; this->read(); }
+  inline bool end() const { return (this->pos >= this->array.size()); }
+
+  RLArray&   array;
+  size_type  pos, ptr;
+  value_type prev;
+  run_type   run;
+
+private:
+  inline void read()
+  {
+    if(this->end()) { return; }
+    this->prev = this->run.first;
+    this->run.first += ByteCode::read(this->array.data, this->ptr);
+    this->run.second = ByteCode::read(this->array.data, this->ptr);
+    this->array.data.clearUntil(this->ptr);
+  }
+};  // class RLIterator
+
+class RLConstIterator
+{
+public:
+  typedef RLArray::size_type  size_type;
+  typedef RLArray::value_type value_type;
+  typedef RLArray::run_type   run_type;
+
+  inline RLConstIterator(const RLArray& _array) :
+    array(_array), pos(0), ptr(0), prev(0), run(0, 0)
+  {
+    this->read();
+  }
+
+  inline run_type operator* () const { return this->run; }
+  inline const run_type* operator-> () const { return &(this->run); }
+  inline void operator++ () { this->pos++; this->read(); }
+  inline bool end() const { return (this->pos >= this->array.size()); }
+
+  const RLArray&  array;
+  size_type       pos, ptr;
+  value_type      prev;
+  run_type        run;
+
+private:
+  inline void read()
+  {
+    if(this->end()) { return; }
+    this->prev = this->run.first;
+    this->run.first += ByteCode::read(this->array.data, this->ptr);
+    this->run.second = ByteCode::read(this->array.data, this->ptr);
+  }
+};  // class RLConstIterator
 
 //------------------------------------------------------------------------------
 

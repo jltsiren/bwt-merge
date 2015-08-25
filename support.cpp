@@ -214,7 +214,7 @@ void
 BlockArray::copy(const BlockArray& source)
 {
   this->clear();
-  this->data = std::vector<byte_type*>(source.data.size());
+  this->data = std::vector<value_type*>(source.data.size());
   this->bytes = source.bytes;
 
   for(size_type i = 0; i < this->data.size(); i++)
@@ -222,7 +222,7 @@ BlockArray::copy(const BlockArray& source)
     if(source.data[i] == 0) { this->data[i] = 0; }
     else
     {
-      this->data[i] = new byte_type[BLOCK_SIZE];
+      this->data[i] = new value_type[BLOCK_SIZE];
       std::memcpy((void*)(this->data[i]), (void*)(source.data[i]), BLOCK_SIZE);
     }
   }
@@ -236,12 +236,6 @@ BlockArray::clear()
     this->clear(i);
   }
   this->data.clear();
-}
-
-void
-BlockArray::clear(BlockArray::size_type _block)
-{
-  delete[] this->data[_block]; this->data[_block] = 0;
 }
 
 void
@@ -267,7 +261,7 @@ BlockArray::operator=(BlockArray&& source)
   if(this != &source)
   {
     this->clear();
-    this->data.swap(source.data);
+    std::swap(this->data, source.data); // The source must not delete the data.
     this->bytes = std::move(source.bytes);
   }
   return *this;
@@ -279,11 +273,11 @@ BlockArray::serialize(std::ostream& out, sdsl::structure_tree_node* s, std::stri
   sdsl::structure_tree_node* child = sdsl::structure_tree::add_child(s, name, sdsl::util::class_name(*this));
   size_type written_bytes = 0;
   written_bytes += sdsl::write_member(this->bytes, out, child, "bytes");
-  for(size_type i = 0; i < this->bytes; i++)
+  for(size_type i = 0; i < this->data.size(); i++)
   {
-    out.write((char*)(this->data[block(i)]), std::min(BLOCK_SIZE, this->bytes - i));
+    out.write((char*)(this->data[i]), BLOCK_SIZE);
+    written_bytes += BLOCK_SIZE;
   }
-  written_bytes += bytes;
   sdsl::structure_tree::add_size(child, written_bytes);
   return written_bytes;
 }
@@ -293,11 +287,11 @@ BlockArray::load(std::istream& in)
 {
   this->clear();
   sdsl::read_member(this->bytes, in);
-  this->data = std::vector<byte_type*>((this->bytes + BLOCK_SIZE - 1) / BLOCK_SIZE, 0);
-  for(size_type i = 0; i < this->bytes; i++)
+  this->data = std::vector<value_type*>((this->bytes + BLOCK_SIZE - 1) / BLOCK_SIZE, 0);
+  for(size_type i = 0; i < this->data.size(); i++)
   {
     this->data[block(i)] = new byte_type[BLOCK_SIZE];
-    in.read((char*)(this->data[block(i)]), std::min(BLOCK_SIZE, this->bytes - i));
+    in.read((char*)(this->data[i]), BLOCK_SIZE);
   }
 }
 
@@ -398,6 +392,147 @@ CumulativeArray::load(std::istream& in)
   this->select_1.load(in, &(this->data));
   this->select_0.load(in, &(this->data));
   sdsl::read_member(this->m_size, in);
+}
+
+//------------------------------------------------------------------------------
+
+RLArray::RLArray()
+{
+  this->run_count = 0;
+  this->value_count = 0;
+}
+
+RLArray::RLArray(const RLArray& source)
+{
+  this->copy(source);
+}
+
+RLArray::RLArray(RLArray&& source)
+{
+  *this = std::move(source);
+}
+
+RLArray::~RLArray()
+{
+}
+
+RLArray::RLArray(std::vector<RLArray::value_type>& source)
+{
+  this->run_count = 0; this->value_count = 0;
+  if(source.empty()) { return; }
+
+  sequentialSort(source.begin(), source.end());
+  value_type prev = 0, curr = source[0];
+  length_type length = 1;
+  for(size_type i = 1; i < source.size(); i++)
+  {
+    if(source[i] == curr) { length++; }
+    else
+    {
+      this->addRun(curr, prev, length);
+      curr = source[i]; length = 1;
+    }
+  }
+  this->addRun(curr, prev, length);
+}
+
+RLArray::RLArray(std::vector<RLArray::run_type>& source)
+{
+  this->run_count = 0; this->value_count = 0;
+  if(source.empty()) { return; }
+
+  sequentialSort(source.begin(), source.end());
+  value_type prev = 0;
+  for(size_type i = 0; i < source.size(); i++) { this->addRun(source[i].first, prev, source[i].second); }
+}
+
+RLArray::RLArray(RLArray& a, RLArray& b)
+{
+  this->run_count = 0; this->value_count = 0;
+
+  iterator a_iter(a), b_iter(b);
+  value_type prev = 0;
+  while(!(a_iter.end()) && !(b_iter.end()))
+  {
+    if(a_iter->first < b_iter->first)
+    {
+      this->addRun(a_iter->first, prev, a_iter->second); ++a_iter;
+    }
+    else if(b_iter->first < a_iter->first)
+    {
+      this->addRun(b_iter->first, prev, b_iter->second); ++b_iter;
+    }
+    else
+    {
+      this->addRun(a_iter->first, prev, a_iter->second + b_iter->second); ++a_iter; ++b_iter;
+    }
+  }
+  while(!(a_iter.end()))
+  {
+    this->addRun(a_iter->first, prev, a_iter->second); ++a_iter;
+  }
+  while(!(b_iter.end()))
+  {
+    this->addRun(b_iter->first, prev, b_iter->second); ++b_iter;
+  }
+}
+
+void
+RLArray::copy(const RLArray& source)
+{
+  this->data = source.data;
+  this->run_count = source.run_count;
+  this->value_count = source.value_count;
+}
+
+void
+RLArray::swap(RLArray& source)
+{
+  if(this != &source)
+  {
+    this->data.swap(source.data);
+    std::swap(this->run_count, source.run_count);
+    std::swap(this->value_count, source.value_count);
+  }
+}
+
+RLArray&
+RLArray::operator=(const RLArray& source)
+{
+  if(this != &source) { this->copy(source); }
+  return *this;
+}
+
+RLArray&
+RLArray::operator=(RLArray&& source)
+{
+  if(this != &source)
+  {
+    this->data = std::move(source.data);
+    this->run_count = std::move(source.run_count);
+    this->value_count = std::move(source.value_count);
+  }
+  return *this;
+}
+
+RLArray::size_type
+RLArray::serialize(std::ostream& out, sdsl::structure_tree_node* s, std::string name) const
+{
+  sdsl::structure_tree_node* child = sdsl::structure_tree::add_child(s, name, sdsl::util::class_name(*this));
+  size_type written_bytes = 0;
+  written_bytes += this->data.serialize(out, child, "data");
+  written_bytes += sdsl::write_member(this->run_count, out, child, "run_count");
+  written_bytes += sdsl::write_member(this->value_count, out, child, "value_count");
+  sdsl::structure_tree::add_size(child, written_bytes);
+  return written_bytes;
+}
+
+void
+RLArray::load(std::istream& in)
+{
+  this->data.load(in);
+  sdsl::read_member(this->run_count, in);
+  sdsl::read_member(this->value_count, in);
 }
 
 //------------------------------------------------------------------------------

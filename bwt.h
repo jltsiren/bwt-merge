@@ -38,7 +38,10 @@ namespace bwtmerge
 class BWT
 {
 public:
-  typedef bwtmerge::size_type size_type;
+  typedef BlockArray::size_type size_type;
+  typedef bwtmerge::char_type   char_type;
+  typedef Run::comp_type        comp_type;
+  typedef Run::length_type      length_type;
 
   const static size_type SAMPLE_RATE = Run::BLOCK_SIZE;
   const static size_type SIGMA       = Run::SIGMA;
@@ -63,7 +66,7 @@ public:
     if(array.size() == 0) { return; }
 
     comp_type comp = alpha.char2comp[array[0]];
-    size_type length = 1;
+    length_type length = 1;
     for(size_type i = 1; i < array.size(); i++)
     {
       comp_type c = alpha.char2comp[array[i]];
@@ -147,14 +150,13 @@ public:
   // returns (rank(i, seq[i]), seq[i])
   inline range_type inverse_select(size_type i) const
   {
-    range_type res(0, 0);
-    if(i >= this->size()) { return res; }
+    range_type run(0, 0);
+    if(i >= this->size()) { return run; }
 
     size_type block = this->block_rank(i);
     size_type rle_pos = block * SAMPLE_RATE;
     size_type seq_pos = (block > 0 ? this->block_select(block) + 1 : 0);
 
-    range_type run(0, 0);
     size_type ranks[SIGMA] = {};
     while(seq_pos <= i)
     {
@@ -199,8 +201,6 @@ public:
       buffer[i - range.first] = run.first;
     }
   }
-
-  inline byte_type rawData(size_type i) const { return this->data[i]; }
 
   void characterCounts(sdsl::int_vector<64>& counts);
 
