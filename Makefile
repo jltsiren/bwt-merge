@@ -15,7 +15,7 @@ OTHER_FLAGS=$(RUSAGE_FLAGS) $(PARALLEL_FLAGS) $(OUTPUT_FLAGS)
 
 include $(SDSL_DIR)/Make.helper
 CXX_FLAGS=$(MY_CXX_FLAGS) $(OTHER_FLAGS) $(MY_CXX_OPT_FLAGS) -I$(INC_DIR)
-LIBOBJS=bwt.o fmi.o support.o utils.o
+LIBOBJS=bwt.o fmi.o formats.o support.o utils.o
 SOURCES=$(wildcard *.cpp)
 HEADERS=$(wildcard *.h)
 OBJS=$(SOURCES:.cpp=.o)
