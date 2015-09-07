@@ -1,6 +1,7 @@
 *.o
 *.a
 
+bwt_convert
 bwt_merge
 sga_inspect
 
