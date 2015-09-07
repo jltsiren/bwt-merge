@@ -31,59 +31,65 @@ namespace bwtmerge
 
 //------------------------------------------------------------------------------
 
-struct RFMData
+Alphabet
+createAlphabet(AlphabeticOrder order)
 {
-  typedef uint64_t code_type;
+  Alphabet alpha;
 
-  inline static size_type bits2values(size_type bits) { return (bits + VALUE_SIZE - 1) / VALUE_SIZE; }
-  inline static size_type values2blocks(size_type values) { return (values + BLOCK_SIZE - 1) / BLOCK_SIZE; }
+  switch(order)
+  {
+  case AO_DEFAULT:
+    break;
+  case AO_SORTED:
+    std::swap(alpha.comp2char[4], alpha.comp2char[5]);
+    std::swap(alpha.char2comp['N'], alpha.char2comp['T']);
+    std::swap(alpha.char2comp['n'], alpha.char2comp['t']);
+    break;
+  }
 
-  const static size_type VALUE_SIZE = 8;
-  const static size_type BLOCK_SIZE = 8;
-  const static size_type SIGMA = 6;
+  return alpha;
+}
+
+//------------------------------------------------------------------------------
+
+struct PlainData
+{
+  typedef uint8_t code_type;
 };
 
 void
-RFMFormat::read(std::istream& in, BlockArray& data)
+readPlain(std::istream& in, BlockArray& data, const Alphabet& alpha)
 {
   data.clear();
 
-  size_type bits; sdsl::read_member(bits, in);
-  size_type bytes = RFMData::bits2values(bits);
-
   RunBuffer run_buffer;
-  sdsl::int_vector<8> buffer(MEGABYTE);
-  for(size_type offset = 0; offset < bytes; offset += MEGABYTE)
+  std::vector<PlainData::code_type> buffer(MEGABYTE);
+  while(true)
   {
-    size_type buffer_size = std::min(MEGABYTE, bytes - offset);
-    in.read((char*)(buffer.data()), RFMData::values2blocks(buffer_size) * sizeof(RFMData::code_type));
-    for(size_type i = 0; i < buffer_size; i++)
+    in.read((char*)(buffer.data()), buffer.size());
+    size_type bytes = in.gcount();
+    if(bytes == 0) { break; }
+    for(size_type i = 0; i < bytes; i++)
     {
-      if(run_buffer.add(buffer[i])) { Run::write(data, run_buffer.run); }
+      if(run_buffer.add(buffer[i]))
+      {
+        Run::write(data, alpha.char2comp[run_buffer.run.first], run_buffer.run.second);
+      }
     }
   }
-  run_buffer.flush(); Run::write(data, run_buffer.run);
+  run_buffer.flush();
+  Run::write(data, alpha.char2comp[run_buffer.run.first], run_buffer.run.second);
 }
 
 void
-RFMFormat::write(std::ostream& out, const BlockArray& data)
+writePlain(std::ostream& out, const BlockArray& data, const Alphabet& alpha)
 {
-  // Header.
-  size_type bits = 0, rle_pos = 0;
+  size_type rle_pos = 0, buffer_pos = 0;
+  std::vector<PlainData::code_type> buffer(MEGABYTE);
   while(rle_pos < data.size())
   {
     range_type run = Run::read(data, rle_pos);
-    bits += run.second * RFMData::VALUE_SIZE;
-  }
-  sdsl::write_member(bits, out);
-
-  // Data.
-  rle_pos = 0;
-  size_type buffer_pos = 0;
-  sdsl::int_vector<8> buffer(MEGABYTE);
-  while(rle_pos < data.size())
-  {
-    range_type run = Run::read(data, rle_pos);
+    run.first = alpha.comp2char[run.first];
     while(run.second > 0)
     {
       if(buffer_pos >= buffer.size())
@@ -97,23 +103,119 @@ RFMFormat::write(std::ostream& out, const BlockArray& data)
   }
   if(buffer_pos > 0)
   {
-    size_type blocks = RFMData::values2blocks(buffer_pos);
-    out.write((char*)(buffer.data()), blocks * RFMData::BLOCK_SIZE);
+    out.write((char*)(buffer.data()), buffer_pos);
   }
 }
 
-/*
-  The alphabet is $ACGNT instead of the default $ACGTN.
-*/
+//------------------------------------------------------------------------------
 
-Alphabet
-RFMFormat::alphabet()
+struct SDSLData
 {
-  Alphabet alpha;
-  std::swap(alpha.comp2char[4], alpha.comp2char[5]);
-  std::swap(alpha.char2comp['N'], alpha.char2comp['T']);
-  std::swap(alpha.char2comp['n'], alpha.char2comp['n']);
-  return alpha;
+  typedef uint64_t code_type;
+
+  inline static size_type bits2values(size_type bits) { return (bits + VALUE_SIZE - 1) / VALUE_SIZE; }
+  inline static size_type values2blocks(size_type values) { return (values + BLOCK_SIZE - 1) / BLOCK_SIZE; }
+
+  const static size_type VALUE_SIZE = 8;
+  const static size_type BLOCK_SIZE = 8;
+  const static size_type SIGMA = 6;
+
+  static void read(std::istream& in, BlockArray& data, const Alphabet& alpha);
+  static void write(std::ostream& out, const BlockArray& data, const Alphabet& alpha);
+};
+
+void
+SDSLData::read(std::istream& in, BlockArray& data, const Alphabet& alpha)
+{
+  data.clear();
+
+  // Header.
+  size_type bits; sdsl::read_member(bits, in);
+  size_type bytes = bits2values(bits);
+
+  // Data.
+  RunBuffer run_buffer;
+  sdsl::int_vector<8> buffer(MEGABYTE);
+  for(size_type offset = 0; offset < bytes; offset += buffer.size())
+  {
+    size_type buffer_size = std::min(buffer.size(), bytes - offset);
+    in.read((char*)(buffer.data()), values2blocks(buffer_size) * sizeof(SDSLData::code_type));
+    for(size_type i = 0; i < buffer_size; i++)
+    {
+      if(run_buffer.add(buffer[i]))
+      {
+        Run::write(data, alpha.char2comp[run_buffer.run.first], run_buffer.run.second);
+      }
+    }
+  }
+  run_buffer.flush();
+  Run::write(data, alpha.char2comp[run_buffer.run.first], run_buffer.run.second);
+}
+
+void
+SDSLData::write(std::ostream& out, const BlockArray& data, const Alphabet& alpha)
+{
+  // Header.
+  size_type bits = 0, rle_pos = 0;
+  while(rle_pos < data.size())
+  {
+    range_type run = Run::read(data, rle_pos);
+    bits += run.second * VALUE_SIZE;
+  }
+  sdsl::write_member(bits, out);
+
+  // Data.
+  rle_pos = 0;
+  size_type buffer_pos = 0;
+  sdsl::int_vector<8> buffer(MEGABYTE);
+  while(rle_pos < data.size())
+  {
+    range_type run = Run::read(data, rle_pos);
+    run.first = alpha.comp2char[run.first];
+    while(run.second > 0)
+    {
+      if(buffer_pos >= buffer.size())
+      {
+        out.write((char*)(buffer.data()), buffer.size());
+        buffer_pos = 0;
+      }
+      size_type length = std::min(buffer.size() - buffer_pos, run.second);
+      for(size_type i = 0; i < length; i++, buffer_pos++) { buffer[buffer_pos] = run.first; }
+    }
+  }
+  if(buffer_pos > 0)
+  {
+    size_type blocks = values2blocks(buffer_pos);
+    out.write((char*)(buffer.data()), blocks * BLOCK_SIZE);
+  }
+}
+
+//------------------------------------------------------------------------------
+
+void
+RFMFormat::read(std::istream& in, BlockArray& data)
+{
+  SDSLData::read(in, data, Alphabet(SDSLData::SIGMA));
+}
+
+void
+RFMFormat::write(std::ostream& out, const BlockArray& data)
+{
+  SDSLData::write(out, data, Alphabet(SDSLData::SIGMA));
+}
+
+//------------------------------------------------------------------------------
+
+void
+SDSLFormat::read(std::istream& in, BlockArray& data)
+{
+  SDSLData::read(in, data, createAlphabet(order()));
+}
+
+void
+SDSLFormat::write(std::ostream& out, const BlockArray& data)
+{
+  SDSLData::write(out, data, createAlphabet(order()));
 }
 
 //------------------------------------------------------------------------------
@@ -236,12 +338,6 @@ SGAFormat::write(std::ostream& out, const BlockArray& data)
     }
   }
   out.write((char*)(buffer.data()), buffer.size());
-}
-
-Alphabet
-SGAFormat::alphabet()
-{
-  return Alphabet();
 }
 
 //------------------------------------------------------------------------------

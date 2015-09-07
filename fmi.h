@@ -58,7 +58,7 @@ public:
   void load(const std::string& filename)
   {
     this->bwt.load<Format>(filename);
-    Alphabet temp = Format::alphabet();
+    Alphabet temp = createAlphabet(Format::order());
     sdsl::int_vector<64> counts;
     this->bwt.characterCounts(counts);
     this->alpha = Alphabet(counts, temp.char2comp, temp.comp2char);

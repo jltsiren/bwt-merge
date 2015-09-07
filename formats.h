@@ -32,28 +32,47 @@ namespace bwtmerge
 
 //------------------------------------------------------------------------------
 
+enum AlphabeticOrder { AO_DEFAULT, AO_SORTED };
+
+Alphabet createAlphabet(AlphabeticOrder order);
+void readPlain(std::istream& in, BlockArray& data, const Alphabet& alpha);
+void writePlain(std::ostream& out, const BlockArray& data, const Alphabet& alpha);
+
+//------------------------------------------------------------------------------
+
 /*
   BWT file formats. Note that BWT formats are only compatible with those having the
   same alphabetic order.
 
     load()      reads the BWT from 'in' and stores it in the native format in 'data'
     write()     writes the BWT stored in the native format in 'data' to 'out'
-    alphabet()  returns an Alphabet object compatible with the format
     order()     returns the alphabetic order
 
-    RFMFormat - Relative FM-index (uncompressed BWT); incompatible
-    SGAFormat - SGA assembler
-
-  FIXME: Add PlainFormat, SDSLFormat, NativeFormat
+    PlainFormat - BWT as a character array; any alphabetic order
+    RFMFormat   - BWT as int_vector<8> of comp values; AO_SORTED
+    SDSLFormat  - BWT as int_vector<8> of characters; AO_SORTED
+    SGAFormat   - SGA assembler; AO_DEFAULT
 */
 
-enum AlphabeticOrder { AO_DEFAULT, AO_SORTED };
+template<AlphabeticOrder ao>
+struct PlainFormat
+{
+  static void read(std::istream& in, BlockArray& data) { readPlain(in, data, createAlphabet(order())); }
+  static void write(std::ostream& out, const BlockArray& data) { writePlain(out, data, createAlphabet(order())); }
+  inline static AlphabeticOrder order() { return ao; }
+};
 
 struct RFMFormat
 {
   static void read(std::istream& in, BlockArray& data);
   static void write(std::ostream& out, const BlockArray& data);
-  static Alphabet alphabet();
+  inline static AlphabeticOrder order() { return AO_SORTED; }
+};
+
+struct SDSLFormat
+{
+  static void read(std::istream& in, BlockArray& data);
+  static void write(std::ostream& out, const BlockArray& data);
   inline static AlphabeticOrder order() { return AO_SORTED; }
 };
 
@@ -61,7 +80,6 @@ struct SGAFormat
 {
   static void read(std::istream& in, BlockArray& data);
   static void write(std::ostream& out, const BlockArray& data);
-  static Alphabet alphabet();
   inline static AlphabeticOrder order() { return AO_DEFAULT; }
 };
 
