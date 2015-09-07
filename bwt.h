@@ -61,7 +61,7 @@ public:
 //------------------------------------------------------------------------------
 
   template<class Format>
-  void load(const std::string& filename)
+  void load(const std::string& filename, sdsl::int_vector<64>& counts)
   {
     std::ifstream in(filename.c_str(), std::ios_base::binary);
     if(!in)
@@ -69,7 +69,7 @@ public:
       std::cerr << "BWT::load(): Cannot open input file " << filename << std::endl;
       return;
     }
-    Format::read(in, this->data);
+    Format::read(in, this->data, counts);
     in.close();
     this->build();
   }

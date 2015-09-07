@@ -58,9 +58,10 @@ struct PlainData
 };
 
 void
-readPlain(std::istream& in, BlockArray& data, const Alphabet& alpha)
+readPlain(std::istream& in, BlockArray& data, sdsl::int_vector<64>& counts, const Alphabet& alpha)
 {
   data.clear();
+  counts = sdsl::int_vector<64>(alpha.sigma, 0);
 
   RunBuffer run_buffer;
   std::vector<PlainData::code_type> buffer(MEGABYTE);
@@ -73,12 +74,16 @@ readPlain(std::istream& in, BlockArray& data, const Alphabet& alpha)
     {
       if(run_buffer.add(buffer[i]))
       {
-        Run::write(data, alpha.char2comp[run_buffer.run.first], run_buffer.run.second);
+        run_buffer.run.first = alpha.char2comp[run_buffer.run.first];
+        Run::write(data, run_buffer.run);
+        counts[run_buffer.run.first] += run_buffer.run.second;
       }
     }
   }
   run_buffer.flush();
-  Run::write(data, alpha.char2comp[run_buffer.run.first], run_buffer.run.second);
+  run_buffer.run.first = alpha.char2comp[run_buffer.run.first];
+  Run::write(data, run_buffer.run);
+  counts[run_buffer.run.first] += run_buffer.run.second;
 }
 
 void
@@ -120,14 +125,15 @@ struct SDSLData
   const static size_type BLOCK_SIZE = 8;
   const static size_type SIGMA = 6;
 
-  static void read(std::istream& in, BlockArray& data, const Alphabet& alpha);
+  static void read(std::istream& in, BlockArray& data, sdsl::int_vector<64>& counts, const Alphabet& alpha);
   static void write(std::ostream& out, const BlockArray& data, const Alphabet& alpha);
 };
 
 void
-SDSLData::read(std::istream& in, BlockArray& data, const Alphabet& alpha)
+SDSLData::read(std::istream& in, BlockArray& data, sdsl::int_vector<64>& counts, const Alphabet& alpha)
 {
   data.clear();
+  counts = sdsl::int_vector<64>(alpha.sigma, 0);
 
   // Header.
   size_type bits; sdsl::read_member(bits, in);
@@ -144,12 +150,16 @@ SDSLData::read(std::istream& in, BlockArray& data, const Alphabet& alpha)
     {
       if(run_buffer.add(buffer[i]))
       {
-        Run::write(data, alpha.char2comp[run_buffer.run.first], run_buffer.run.second);
+        run_buffer.run.first = alpha.char2comp[run_buffer.run.first];
+        Run::write(data, run_buffer.run);
+        counts[run_buffer.run.first] += run_buffer.run.second;
       }
     }
   }
   run_buffer.flush();
-  Run::write(data, alpha.char2comp[run_buffer.run.first], run_buffer.run.second);
+  run_buffer.run.first = alpha.char2comp[run_buffer.run.first];
+  Run::write(data, run_buffer.run);
+  counts[run_buffer.run.first] += run_buffer.run.second;
 }
 
 void
@@ -193,9 +203,9 @@ SDSLData::write(std::ostream& out, const BlockArray& data, const Alphabet& alpha
 //------------------------------------------------------------------------------
 
 void
-RFMFormat::read(std::istream& in, BlockArray& data)
+RFMFormat::read(std::istream& in, BlockArray& data, sdsl::int_vector<64>& counts)
 {
-  SDSLData::read(in, data, Alphabet(SDSLData::SIGMA));
+  SDSLData::read(in, data, counts, Alphabet(SDSLData::SIGMA));
 }
 
 void
@@ -207,9 +217,9 @@ RFMFormat::write(std::ostream& out, const BlockArray& data)
 //------------------------------------------------------------------------------
 
 void
-SDSLFormat::read(std::istream& in, BlockArray& data)
+SDSLFormat::read(std::istream& in, BlockArray& data, sdsl::int_vector<64>& counts)
 {
-  SDSLData::read(in, data, createAlphabet(order()));
+  SDSLData::read(in, data, counts, createAlphabet(order()));
 }
 
 void
@@ -233,12 +243,14 @@ struct SGAData
   const static code_type RUN_MASK = 0x1F;
   const static size_type RUN_BITS = 5;
   const static size_type MAX_RUN = 31;
+  const static size_type SIGMA = 6;
 };
 
 void
-SGAFormat::read(std::istream& in, BlockArray& data)
+SGAFormat::read(std::istream& in, BlockArray& data, sdsl::int_vector<64>& counts)
 {
   data.clear();
+  counts = sdsl::int_vector<64>(SGAData::SIGMA, 0);
 
   SGAHeader header(in);
   if(!(header.check()))
@@ -258,10 +270,13 @@ SGAFormat::read(std::istream& in, BlockArray& data)
       if(run_buffer.add(SGAData::comp(buffer[i]), SGAData::length(buffer[i])))
       {
         Run::write(data, run_buffer.run);
+        counts[run_buffer.run.first] += run_buffer.run.second;
       }
     }
   }
-  run_buffer.flush(); Run::write(data, run_buffer.run);
+  run_buffer.flush();
+  Run::write(data, run_buffer.run);
+  counts[run_buffer.run.first] += run_buffer.run.second;
 }
 
 void

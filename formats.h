@@ -35,7 +35,7 @@ namespace bwtmerge
 enum AlphabeticOrder { AO_DEFAULT, AO_SORTED };
 
 Alphabet createAlphabet(AlphabeticOrder order);
-void readPlain(std::istream& in, BlockArray& data, const Alphabet& alpha);
+void readPlain(std::istream& in, BlockArray& data, sdsl::int_vector<64>& counts, const Alphabet& alpha);
 void writePlain(std::ostream& out, const BlockArray& data, const Alphabet& alpha);
 
 //------------------------------------------------------------------------------
@@ -57,28 +57,36 @@ void writePlain(std::ostream& out, const BlockArray& data, const Alphabet& alpha
 template<AlphabeticOrder ao>
 struct PlainFormat
 {
-  static void read(std::istream& in, BlockArray& data) { readPlain(in, data, createAlphabet(order())); }
-  static void write(std::ostream& out, const BlockArray& data) { writePlain(out, data, createAlphabet(order())); }
+  static void read(std::istream& in, BlockArray& data, sdsl::int_vector<64>& counts)
+  {
+    readPlain(in, data, counts, createAlphabet(order()));
+  }
+
+  static void write(std::ostream& out, const BlockArray& data)
+  {
+    writePlain(out, data, createAlphabet(order()));
+  }
+
   inline static AlphabeticOrder order() { return ao; }
 };
 
 struct RFMFormat
 {
-  static void read(std::istream& in, BlockArray& data);
+  static void read(std::istream& in, BlockArray& data, sdsl::int_vector<64>& counts);
   static void write(std::ostream& out, const BlockArray& data);
   inline static AlphabeticOrder order() { return AO_SORTED; }
 };
 
 struct SDSLFormat
 {
-  static void read(std::istream& in, BlockArray& data);
+  static void read(std::istream& in, BlockArray& data, sdsl::int_vector<64>& counts);
   static void write(std::ostream& out, const BlockArray& data);
   inline static AlphabeticOrder order() { return AO_SORTED; }
 };
 
 struct SGAFormat
 {
-  static void read(std::istream& in, BlockArray& data);
+  static void read(std::istream& in, BlockArray& data, sdsl::int_vector<64>& counts);
   static void write(std::ostream& out, const BlockArray& data);
   inline static AlphabeticOrder order() { return AO_DEFAULT; }
 };

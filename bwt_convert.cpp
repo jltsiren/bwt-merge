@@ -56,9 +56,9 @@ main(int argc, char** argv)
 
   printSize("FMI", sdsl::size_in_bytes(fmi), fmi.size());
   std::cout << std::endl;
-
   sdsl::store_to_file(fmi, output);
-  std::cout << "FMI written to disk" << std::endl;
+
+  std::cout << "Memory usage: " << inMegabytes(memoryUsage()) << " MB" << std::endl;
   std::cout << std::endl;
 
   return 0;
