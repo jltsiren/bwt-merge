@@ -39,7 +39,7 @@ main(int argc, char** argv)
     std::exit(EXIT_SUCCESS);
   }
 
-  std::cout << "BWT-converter" << std::endl;
+  std::cout << "BWT converter" << std::endl;
   std::cout << std::endl;
 
   std::string input = argv[1], output = argv[2];

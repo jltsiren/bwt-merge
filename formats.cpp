@@ -248,22 +248,20 @@ SGAFormat::read(std::istream& in, BlockArray& data)
   }
 
   SGAData::code_type buffer[MEGABYTE];
-  range_type run(0, 0);
+  RunBuffer run_buffer;
   for(size_type offset = 0; offset < header.runs; offset += MEGABYTE)
   {
     size_type bytes = std::min(MEGABYTE, header.runs - offset);
     in.read((char*)buffer, bytes);
     for(size_type i = 0; i < bytes; i++)
     {
-      if(SGAData::comp(buffer[i]) == run.first) { run.second += SGAData::length(buffer[i]); }
-      else
+      if(run_buffer.add(SGAData::comp(buffer[i]), SGAData::length(buffer[i])))
       {
-        if(run.second > 0) { Run::write(data, run.first, run.second); }
-        run.first = SGAData::comp(buffer[i]); run.second = SGAData::length(buffer[i]);
+        Run::write(data, run_buffer.run);
       }
     }
   }
-  if(run.second > 0) { Run::write(data, run.first, run.second); }
+  run_buffer.flush(); Run::write(data, run_buffer.run);
 }
 
 void
