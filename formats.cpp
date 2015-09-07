@@ -220,46 +220,6 @@ SDSLFormat::write(std::ostream& out, const BlockArray& data)
 
 //------------------------------------------------------------------------------
 
-struct SGAHeader
-{
-  uint16_t tag;
-  uint64_t reads;
-  uint64_t bases;
-  uint64_t runs;
-  uint32_t flag;
-
-  const static uint16_t DEFAULT_TAG = 0xCACA;
-  const static uint32_t DEFAULT_FLAG = 0;
-
-  SGAHeader(std::istream& in)
-  {
-    sdsl::read_member(this->tag, in);
-    sdsl::read_member(this->reads, in);
-    sdsl::read_member(this->bases, in);
-    sdsl::read_member(this->runs, in);
-    sdsl::read_member(this->flag, in);
-  }
-
-  SGAHeader() :
-    tag(DEFAULT_TAG), reads(0), bases(0), runs(0), flag(DEFAULT_FLAG)
-  {
-  }
-
-  void write(std::ostream& out)
-  {
-    sdsl::write_member(this->tag, out);
-    sdsl::write_member(this->reads, out);
-    sdsl::write_member(this->bases, out);
-    sdsl::write_member(this->runs, out);
-    sdsl::write_member(this->flag, out);
-  }
-
-  bool check()
-  {
-    return (this->tag == DEFAULT_TAG && this->flag == DEFAULT_FLAG);
-  }
-};
-
 struct SGAData
 {
   typedef bwtmerge::comp_type comp_type;
@@ -338,6 +298,43 @@ SGAFormat::write(std::ostream& out, const BlockArray& data)
     }
   }
   out.write((char*)(buffer.data()), buffer.size());
+}
+
+//------------------------------------------------------------------------------
+
+SGAHeader::SGAHeader(std::istream& in)
+{
+  sdsl::read_member(this->tag, in);
+  sdsl::read_member(this->reads, in);
+  sdsl::read_member(this->bases, in);
+  sdsl::read_member(this->runs, in);
+  sdsl::read_member(this->flag, in);
+}
+
+SGAHeader::SGAHeader() :
+  tag(DEFAULT_TAG), reads(0), bases(0), runs(0), flag(DEFAULT_FLAG)
+{
+}
+
+void
+SGAHeader::write(std::ostream& out)
+{
+  sdsl::write_member(this->tag, out);
+  sdsl::write_member(this->reads, out);
+  sdsl::write_member(this->bases, out);
+  sdsl::write_member(this->runs, out);
+  sdsl::write_member(this->flag, out);
+}
+
+bool
+SGAHeader::check()
+{
+  return (this->tag == DEFAULT_TAG && this->flag == DEFAULT_FLAG);
+}
+
+std::ostream& operator<<(std::ostream& stream, const SGAHeader& header)
+{
+  return stream << header.reads << " reads, " << header.bases << " bases, " << header.runs << " runs";
 }
 
 //------------------------------------------------------------------------------

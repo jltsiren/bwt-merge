@@ -85,6 +85,28 @@ struct SGAFormat
 
 //------------------------------------------------------------------------------
 
+struct SGAHeader
+{
+  uint16_t tag;
+  uint64_t reads;
+  uint64_t bases;
+  uint64_t runs;
+  uint32_t flag;
+
+  const static uint16_t DEFAULT_TAG = 0xCACA;
+  const static uint32_t DEFAULT_FLAG = 0;
+
+  SGAHeader(std::istream& in);
+  SGAHeader();
+
+  void write(std::ostream& out);
+  bool check();
+};
+
+std::ostream& operator<<(std::ostream& stream, const SGAHeader& header);
+
+//------------------------------------------------------------------------------
+
 } // namespace bwtmerge
 
 #endif // _BWTMERGE_FORMATS_H

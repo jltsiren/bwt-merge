@@ -2,6 +2,7 @@
 *.a
 
 bwt_merge
+sga_inspect
 
 .DS_Store
 
