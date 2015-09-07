@@ -48,7 +48,7 @@ main(int argc, char** argv)
   std::cout << std::endl;
 
   double start = readTimer();
-  FMI fmi; fmi.load<SGAFormat>(argv[1]);
+  FMI fmi; fmi.load<SGAFormat>(input);
   double seconds = readTimer() - start;
   std::cout << "BWT converted in " << seconds << " seconds ("
             << (inMegabytes(fmi.size()) / seconds) << " MB/s)" << std::endl;
@@ -57,7 +57,7 @@ main(int argc, char** argv)
   printSize("FMI", sdsl::size_in_bytes(fmi), fmi.size());
   std::cout << std::endl;
 
-  sdsl::store_to_file(fmi, argv[2]);
+  sdsl::store_to_file(fmi, output);
   std::cout << "FMI written to disk" << std::endl;
   std::cout << std::endl;
 
