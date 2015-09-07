@@ -23,13 +23,14 @@
 */
 
 #include "fmi.h"
+#include "formats.h"
 
 using namespace bwtmerge;
 
 //------------------------------------------------------------------------------
 
 #define TEST_FMI
-#define TEST_RLARRAY
+//#define TEST_RLARRAY
 
 void testFMI(std::string input_name, std::string pattern_name);
 void testRLArray();
@@ -77,15 +78,7 @@ testFMI(std::string input_name, std::string pattern_name)
   std::cout << std::endl;
 
   FMI fmi;
-  {
-    sdsl::int_vector_buffer<8> input(input_name);
-    Alphabet comp_alpha = Alphabet(BWT::SIGMA);
-    fmi.bwt = BWT(input, comp_alpha);
-    sdsl::int_vector<64> counts;
-    fmi.bwt.characterCounts(counts);
-    Alphabet rfm_alpha = rfmAlphabet();
-    fmi.alpha = Alphabet(counts, rfm_alpha.char2comp, rfm_alpha.comp2char);
-  }
+  fmi.load<RFMFormat>(input_name);
 
   double start = readTimer();
   size_type found = 0, matches = 0;

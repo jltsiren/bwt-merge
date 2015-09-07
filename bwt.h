@@ -60,21 +60,17 @@ public:
 
 //------------------------------------------------------------------------------
 
-  template<class CharArray>
-  BWT(CharArray& array, const Alphabet& alpha)
+  template<class Format>
+  void load(const std::string& filename)
   {
-    if(array.size() == 0) { return; }
-
-    comp_type comp = alpha.char2comp[array[0]];
-    length_type length = 1;
-    for(size_type i = 1; i < array.size(); i++)
+    std::ifstream in(filename.c_str(), std::ios_base::binary);
+    if(!in)
     {
-      comp_type c = alpha.char2comp[array[i]];
-      if(c == comp) { length++; }
-      else { Run::write(this->data, comp, length); comp = c; length = 1; }
+      std::cerr << "BWT::load(): Cannot open input file " << filename << std::endl;
+      return;
     }
-    Run::write(this->data, comp, length);
-
+    Format::read(in, this->data);
+    in.close();
     this->build();
   }
 

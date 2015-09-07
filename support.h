@@ -79,10 +79,7 @@ private:
   void copy(const Alphabet& a);
 };  // class Alphabet
 
-/*
-  An alphabet that maps \0ACGNT to 0-5.
-*/
-Alphabet rfmAlphabet();
+std::ostream& operator<<(std::ostream& stream, const Alphabet& alpha);
 
 //------------------------------------------------------------------------------
 
@@ -267,6 +264,9 @@ struct Run
       }
     }
   }
+
+  template<class ByteArray>
+  inline static void write(ByteArray& array, range_type run) { write(array, run.first, run.second); }
 };
 
 //------------------------------------------------------------------------------

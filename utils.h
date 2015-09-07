@@ -88,6 +88,41 @@ std::ostream& operator<<(std::ostream& stream, const std::pair<A, B>& data)
 
 //------------------------------------------------------------------------------
 
+/*
+  RunBuffer transforms a sequence of values or runs into a sequence of maximal runs.
+  Usage:
+
+    RunBuffer buffer;
+    while(...)
+    {
+      if(buffer.add(...)) { doSomething(buffer.run); }
+    }
+    buffer.flush(); doSomething(buffer.run);
+*/
+
+struct RunBuffer
+{
+  RunBuffer() : value(0), length(0), run(0, 0) { }
+
+  inline bool add(size_type v, size_type n = 1)
+  {
+    if(v == value) { length += n; return false; }
+    else
+    {
+      this->flush();
+      this->value = v; this->length = n;
+      return (this->run.second > 0);
+    }
+  }
+
+  inline void flush() { this->run.first = this->value; this->run.second = this->length; }
+
+  size_type  value, length;
+  range_type run;
+};
+
+//------------------------------------------------------------------------------
+
 template<class IntegerType>
 inline size_type
 bit_length(IntegerType val)

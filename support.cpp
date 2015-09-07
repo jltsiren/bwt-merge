@@ -178,14 +178,18 @@ Alphabet::load(std::istream& in)
   sdsl::read_member(this->sigma, in);
 }
 
-Alphabet
-rfmAlphabet()
+std::ostream&
+operator<<(std::ostream& stream, const Alphabet& alpha)
 {
-  Alphabet alpha;
-  std::swap(alpha.comp2char[4], alpha.comp2char[5]);
-  std::swap(alpha.char2comp['N'], alpha.char2comp['T']);
-  std::swap(alpha.char2comp['n'], alpha.char2comp['t']);
-  return alpha;
+  stream << "[ ";
+  for(size_type i = 0; i < alpha.sigma; i++)
+  {
+    if(i > 0) { stream << ", "; }
+    stream << "(" << (char)(alpha.comp2char[i]) << ", "
+           << charRange(alpha, i) << ")";
+  }
+  stream << " ]";
+  return stream;
 }
 
 //------------------------------------------------------------------------------

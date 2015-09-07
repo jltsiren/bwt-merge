@@ -33,41 +33,36 @@ namespace bwtmerge
 //------------------------------------------------------------------------------
 
 /*
-  BWT file formats. Function load() reads the BWT from 'in' and stores it in the native
-  format in 'data'. Function write() writes the BWT stored in the native format in 'data'
-  to 'out'.
+  BWT file formats. Note that BWT formats are only compatible with those having the
+  same alphabetic order.
 
+    load()      reads the BWT from 'in' and stores it in the native format in 'data'
+    write()     writes the BWT stored in the native format in 'data' to 'out'
+    alphabet()  returns an Alphabet object compatible with the format
+    order()     returns the alphabetic order
+
+    RFMFormat - Relative FM-index (uncompressed BWT); incompatible
     SGAFormat - SGA assembler
 
-  FIXME: RFMFormat, PlainFormat, SDSLFormat, NativeFormat
+  FIXME: Add PlainFormat, SDSLFormat, NativeFormat
 */
 
-//------------------------------------------------------------------------------
+enum AlphabeticOrder { AO_DEFAULT, AO_SORTED };
 
 struct RFMFormat
 {
   static void read(std::istream& in, BlockArray& data);
   static void write(std::ostream& out, const BlockArray& data);
+  static Alphabet alphabet();
+  inline static AlphabeticOrder order() { return AO_SORTED; }
 };
-
-//------------------------------------------------------------------------------
 
 struct SGAFormat
 {
   static void read(std::istream& in, BlockArray& data);
   static void write(std::ostream& out, const BlockArray& data);
-
-  typedef bwtmerge::comp_type comp_type;
-  typedef bwtmerge::size_type length_type;
-  typedef uint8_t             code_type;
-
-  inline static code_type encode(comp_type comp, length_type length) { return (comp << RUN_BITS) | length; }
-  inline static comp_type comp(code_type code) { return (code >> RUN_BITS); }
-  inline static length_type length(code_type code) { return (code & RUN_MASK); }
-
-  const static code_type RUN_MASK = 0x1F;
-  const static size_type RUN_BITS = 5;
-  const static size_type MAX_RUN = 31;
+  static Alphabet alphabet();
+  inline static AlphabeticOrder order() { return AO_DEFAULT; }
 };
 
 //------------------------------------------------------------------------------

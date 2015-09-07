@@ -54,6 +54,18 @@ public:
 
 //------------------------------------------------------------------------------
 
+  template<class Format>
+  void load(const std::string& filename)
+  {
+    this->bwt.load<Format>(filename);
+    Alphabet temp = Format::alphabet();
+    sdsl::int_vector<64> counts;
+    this->bwt.characterCounts(counts);
+    this->alpha = Alphabet(counts, temp.char2comp, temp.comp2char);
+  }
+
+//------------------------------------------------------------------------------
+
   inline size_type size() const { return this->bwt.size(); }
   inline size_type sequences() const { return this->alpha.C[1]; }
 
