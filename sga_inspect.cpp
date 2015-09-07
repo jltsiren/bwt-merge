@@ -41,6 +41,7 @@ main(int argc, char** argv)
   std::cout << "Inspecting BWT files in SGA format" << std::endl;
   std::cout << std::endl;
 
+  SGAHeader total;
   for(int arg = 1; arg < argc; arg++)
   {
     std::ifstream in(argv[arg], std::ios_base::binary);
@@ -50,10 +51,15 @@ main(int argc, char** argv)
       continue;
     }
     SGAHeader header(in); in.close();
-    std::cout << argv[argc] << ": " << header << std::endl;
-  }
 
+    total.reads += header.reads; total.bases += header.bases; total.runs += header.runs;
+    std::cout << argv[arg] << ": " << header << std::endl;
+  }
   std::cout << std::endl;
+
+  std::cout << "Total: " << total << std::endl;
+  std::cout << std::endl;
+
   return 0;
 }
 
