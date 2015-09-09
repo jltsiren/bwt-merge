@@ -68,17 +68,38 @@ public:
   inline size_type size() const { return this->bwt.size(); }
   inline size_type sequences() const { return this->alpha.C[1]; }
 
+  inline range_type charRange(comp_type comp) const
+  {
+    return bwtmerge::charRange(this->alpha, comp);
+  }
+
+  // Returns (LF(i), BWT[i]).
+  inline range_type LF(size_type i) const
+  {
+    return bwtmerge::LF(this->bwt, this->alpha, i);
+  }
+
+  inline size_type LF(size_type i, comp_type comp) const
+  {
+    return bwtmerge::LF(this->bwt, this->alpha, i, comp);
+  }
+
+  inline range_type LF(range_type range, comp_type comp) const
+  {
+    return bwtmerge::LF(this->bwt, this->alpha, range, comp);
+  }
+
   template<class Iterator>
   range_type find(Iterator begin, Iterator end) const
   {
     if(begin == end) { return range_type(0, this->size() - 1); }
 
     --end;
-    range_type range = charRange(this->alpha, this->alpha.char2comp[*end]);
+    range_type range = this->charRange(this->alpha.char2comp[*end]);
     while(!Range::empty(range) && end != begin)
     {
       --end;
-      range = LF(this->bwt, this->alpha, range, this->alpha.char2comp[*end]);
+      range = this->LF(range, this->alpha.char2comp[*end]);
     }
 
     return range;

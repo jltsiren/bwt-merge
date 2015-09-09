@@ -424,6 +424,15 @@ private:
   }
 };  // class RLArray
 
+template<class Element>
+void
+add(RLArray& array, std::vector<Element>& values)
+{
+  RLArray temp(values);
+  if(array.size() == 0) { array.swap(temp); }
+  else { array = RLArray(array, temp); }
+}
+
 class RLIterator
 {
 public:

@@ -294,7 +294,7 @@ BlockArray::load(std::istream& in)
   this->data = std::vector<value_type*>((this->bytes + BLOCK_SIZE - 1) / BLOCK_SIZE, 0);
   for(size_type i = 0; i < this->data.size(); i++)
   {
-    this->data[block(i)] = new byte_type[BLOCK_SIZE];
+    this->data[i] = new byte_type[BLOCK_SIZE];
     in.read((char*)(this->data[i]), BLOCK_SIZE);
   }
 }

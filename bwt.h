@@ -78,7 +78,7 @@ public:
 
   inline size_type size() const { return this->block_boundaries.size(); }
   inline size_type bytes() const { return this->data.size(); }
-  inline size_type count(uint8_t c) const { return this->samples[c].sum(); }
+  inline size_type count(comp_type c) const { return this->samples[c].sum(); }
 
   inline size_type rank(size_type i, comp_type c) const
   {
@@ -127,7 +127,7 @@ public:
     }
   }
 
-  inline size_type operator[](size_type i) const
+  inline comp_type operator[](size_type i) const
   {
     if(i >= this->size()) { return 0; }
 
@@ -137,9 +137,8 @@ public:
     while(true)
     {
       range_type run = Run::read(this->data, rle_pos);
-      seq_pos += run.second - 1;  // The last position in the run.
-      if(seq_pos >= i) { return run.first; }
-      seq_pos++;  // Move to the first position in the next run.
+      seq_pos += run.second;  // The start of the next run.
+      if(seq_pos > i) { return run.first; }
     }
   }
 
