@@ -560,6 +560,22 @@ RLArray::load(std::istream& in)
   sdsl::read_member(this->value_count, in);
 }
 
+void
+RLArray::clear()
+{
+  this->data.clear();
+  this->run_count = 0;
+  this->value_count = 0;
+}
+
+void
+add(RLArray& target, RLArray& source)
+{
+  if(source.size() == 0) { return; }
+  if(target.size() == 0) { target.swap(source); }
+  else { target = RLArray(target, source); }
+}
+
 //------------------------------------------------------------------------------
 
 } // namespace bwtmerge

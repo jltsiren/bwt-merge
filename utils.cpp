@@ -125,4 +125,22 @@ tempFile(const std::string& name_part)
 
 //------------------------------------------------------------------------------
 
+std::vector<range_type>
+getBounds(range_type range, size_type threads)
+{
+  std::vector<range_type> bounds(threads);
+  for(size_type thread = 0, start = range.first; thread < threads; thread++)
+  {
+    bounds[thread].first = start;
+    if(start <= range.second)
+    {
+      start += std::max((size_type)1, (range.second + 1 - start) / (threads - thread));
+    }
+    bounds[thread].second = start - 1;
+  }
+  return bounds;
+}
+
+//------------------------------------------------------------------------------
+
 } // namespace bwtmerge

@@ -272,6 +272,14 @@ removeDuplicates(std::vector<Element>& vec, bool parallel)
 //------------------------------------------------------------------------------
 
 /*
+  Split the range approximately evenly between the threads.
+*/
+
+std::vector<range_type> getBounds(range_type range, size_type threads);
+
+//------------------------------------------------------------------------------
+
+/*
   BWT-merge uses a contiguous byte alphabet [0, sigma - 1] internally. Array C is based on the
   number of occurrences of each character in the BWT.
 */

@@ -413,6 +413,8 @@ public:
   size_type serialize(std::ostream& out, sdsl::structure_tree_node* v = nullptr, std::string name = "") const;
   void load(std::istream& in);
 
+  void clear();
+
   BlockArray data;
   size_type  run_count, value_count;
 
@@ -429,12 +431,16 @@ private:
 
 template<class Element>
 void
-add(RLArray& array, std::vector<Element>& values)
+add(RLArray& target, std::vector<Element>& values)
 {
+  if(values.empty()) { return; }
+
   RLArray temp(values);
-  if(array.size() == 0) { array.swap(temp); }
-  else { array = RLArray(array, temp); }
+  if(target.size() == 0) { target.swap(temp); }
+  else { target = RLArray(target, temp); }
 }
+
+void add(RLArray& target, RLArray& source);
 
 class RLIterator
 {

@@ -114,26 +114,34 @@ struct MergePosition
   MergePosition(size_type pos, range_type range) : a_pos(pos), b_range(range) {}
 };
 
-const static size_type RUN_BUFFER_SIZE = MEGABYTE;
-
-FMI::FMI(FMI& a, FMI& b)
+void
+mergeRA(RLArray& ra, RLArray& thread_buffer, std::vector<RLArray::run_type>& buffer, bool force)
 {
-  if(a.alpha != b.alpha)
+  add(thread_buffer, buffer); buffer.clear();
+  if(force || thread_buffer.bytes() >= FMI::THREAD_BUFFER_SIZE)
   {
-    std::cerr << "FMI::FMI(): Cannot merge BWTs with different alphabets." << std::endl;
-    std::exit(EXIT_FAILURE);
+    #pragma omp critical
+    {
+      add(ra, thread_buffer); thread_buffer.clear();
+    }
   }
+}
 
-  RLArray ra;
+void
+buildRA(const FMI& a, const FMI& b, RLArray& ra, range_type sequence_range)
+{
+  if(Range::empty(sequence_range)) { return; }
+
+  RLArray thread_buffer;
   std::vector<RLArray::run_type> buffer;
   std::stack<MergePosition> positions;
 
-  positions.push(MergePosition(a.sequences(), range_type(0, b.sequences() - 1)));
+  positions.push(MergePosition(a.sequences(), sequence_range));
   while(!(positions.empty()))
   {
     MergePosition curr = positions.top(); positions.pop();
     buffer.push_back(RLArray::run_type(curr.a_pos, Range::length(curr.b_range)));
-    if(buffer.size() >= RUN_BUFFER_SIZE) { add(ra, buffer); buffer.clear(); }
+    if(buffer.size() >= FMI::RUN_BUFFER_SIZE) { mergeRA(ra, thread_buffer, buffer, false); }
 
     if(Range::length(curr.b_range) < b.alpha.sigma)
     {
@@ -155,7 +163,27 @@ FMI::FMI(FMI& a, FMI& b)
       }
     }
   }
-  if(buffer.size() > 0) { add(ra, buffer); buffer.clear(); }
+
+  mergeRA(ra, thread_buffer, buffer, true);
+}
+
+FMI::FMI(FMI& a, FMI& b)
+{
+  if(a.alpha != b.alpha)
+  {
+    std::cerr << "FMI::FMI(): Cannot merge BWTs with different alphabets." << std::endl;
+    std::exit(EXIT_FAILURE);
+  }
+
+  size_type threads = omp_get_max_threads();
+  std::vector<range_type> bounds = getBounds(range_type(0, b.sequences() - 1), threads);
+
+  RLArray ra;
+  #pragma omp parallel for schedule(static)
+  for(size_type thread = 0; thread < threads; thread++)
+  {
+    buildRA(a, b, ra, bounds[thread]);
+  }
 
   std::cout << "Memory usage with RA: " << inMegabytes(memoryUsage()) << " MB" << std::endl;
   std::cout << std::endl;
