@@ -133,6 +133,52 @@ BWT::load(std::istream& in)
 
 //------------------------------------------------------------------------------
 
+BWT::BWT(BWT& a, BWT& b, RLArray& ra)
+{
+  a.destroy(); b.destroy();
+
+  size_type a_rle_pos = 0, b_rle_pos = 0;
+  size_type a_seq_pos = 0;
+  range_type a_run = Run::read(a.data, a_rle_pos); a.data.clearUntil(a_rle_pos);
+  range_type b_run = Run::read(b.data, b_rle_pos); b.data.clearUntil(b_rle_pos);
+
+  RunBuffer buffer;
+  for(RLIterator iter(ra); !(iter.end()); ++iter)
+  {
+    while(a_seq_pos < iter->first)
+    {
+      size_type length = std::min(iter->first - a_seq_pos, a_run.second);
+      if(buffer.add(a_run.first, length)) { Run::write(this->data, buffer.run); }
+      a_run.second -= length; a_seq_pos += length;
+      if(a_run.second == 0 && a_rle_pos < a.data.size())
+      {
+        a_run = Run::read(a.data, a_rle_pos); a.data.clearUntil(a_rle_pos);
+      }
+    }
+    while(iter->second > 0)
+    {
+      size_type length = std::min(iter->second, b_run.second);
+      if(buffer.add(b_run.first, length)) { Run::write(this->data, buffer.run); }
+      b_run.second -= length; iter->second -= length;
+      if(b_run.second == 0 && b_rle_pos < b.data.size())
+      {
+        b_run = Run::read(b.data, b_rle_pos); b.data.clearUntil(b_rle_pos);
+      }
+    }
+  }
+  while(a_run.second > 0)
+  {
+    if(buffer.add(a_run)) { Run::write(this->data, buffer.run); }
+    if(a_rle_pos < a.data.size()) { a_run = Run::read(a.data, a_rle_pos); a.data.clearUntil(a_rle_pos); }
+    else { a_run.second = 0; }
+  }
+  buffer.flush(); Run::write(this->data, buffer.run);
+
+  this->build();
+}
+
+//------------------------------------------------------------------------------
+
 void
 BWT::build()
 {
@@ -172,6 +218,15 @@ BWT::build()
     this->samples[c] = CumulativeArray(counts[c]);
     sdsl::util::clear(counts[c]);
   }
+}
+
+void
+BWT::destroy()
+{
+  for(size_type c = 0; c < SIGMA; c++) { sdsl::util::clear(this->samples[c]); }
+  sdsl::util::clear(this->block_boundaries);
+  sdsl::util::clear(this->block_rank);
+  sdsl::util::clear(this->block_select);
 }
 
 //------------------------------------------------------------------------------

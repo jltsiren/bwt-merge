@@ -178,6 +178,27 @@ Alphabet::load(std::istream& in)
   sdsl::read_member(this->sigma, in);
 }
 
+bool
+Alphabet::operator== (const Alphabet& another) const
+{
+  if(this->sigma != another.sigma) { return false; }
+  for(size_type i = 0; i < this->char2comp.size(); i++)
+  {
+    if(this->char2comp[i] != another.char2comp[i]) { return false; }
+  }
+  for(size_type i = 0; i < this->comp2char.size(); i++)
+  {
+    if(this->comp2char[i] != another.comp2char[i]) { return false; }
+  }
+  return true;
+}
+
+bool
+Alphabet::operator!= (const Alphabet& another) const
+{
+  return !(*this == another);
+}
+
 std::ostream&
 operator<<(std::ostream& stream, const Alphabet& alpha)
 {

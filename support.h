@@ -71,6 +71,9 @@ public:
   size_type serialize(std::ostream& out, sdsl::structure_tree_node* v = nullptr, std::string name = "") const;
   void load(std::istream& in);
 
+  bool operator== (const Alphabet& another) const;
+  bool operator!= (const Alphabet& another) const;
+
   sdsl::int_vector<8>  char2comp, comp2char;
   sdsl::int_vector<64> C;
   size_type            sigma;
@@ -447,7 +450,7 @@ public:
   }
 
   inline run_type operator* () const { return this->run; }
-  inline const run_type* operator-> () const { return &(this->run); }
+  inline run_type* operator-> () { return &(this->run); }
   inline void operator++ () { this->pos++; this->read(); }
   inline bool end() const { return (this->pos >= this->array.size()); }
 

@@ -115,6 +115,8 @@ struct RunBuffer
     }
   }
 
+  inline bool add(range_type run) { return this->add(run.first, run.second); }
+
   inline void flush() { this->run.first = this->value; this->run.second = this->length; }
 
   size_type  value, length;

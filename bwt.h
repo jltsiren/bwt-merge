@@ -60,6 +60,14 @@ public:
 
 //------------------------------------------------------------------------------
 
+  /*
+    This constructor interleaves the source BWTs according to the rank array. All the
+    input structures will be destroyed in the process.
+  */
+  BWT(BWT& a, BWT&b, RLArray& ra);
+
+//------------------------------------------------------------------------------
+
   template<class Format>
   void load(const std::string& filename, sdsl::int_vector<64>& counts)
   {
@@ -213,7 +221,10 @@ public:
 private:
   void copy(const BWT& source);
   void setVectors();
+
+  // Builds/destroys the rank/select structures.
   void build();
+  void destroy();
 };  // class BWT
 
 //------------------------------------------------------------------------------

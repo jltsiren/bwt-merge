@@ -81,10 +81,14 @@ main(int argc, char** argv)
   loadFMI(fmi1, index_name, "BWT 1", patterns, chars);
   loadFMI(fmi2, increment_name, "BWT 2", patterns, chars);
 
+  std::cout << "Memory usage before merging: " << inMegabytes(memoryUsage()) << " MB" << std::endl;
+  std::cout << std::endl;
+
   FMI merged;
   merge(merged, fmi1, fmi2, patterns, chars);
+  sdsl::store_to_file(merged, output_name);
 
-  std::cout << "Memory usage: " << inMegabytes(memoryUsage()) << " MB" << std::endl;
+  std::cout << "Final memory usage: " << inMegabytes(memoryUsage()) << " MB" << std::endl;
   std::cout << std::endl;
 
   return 0;
@@ -93,10 +97,8 @@ main(int argc, char** argv)
 //------------------------------------------------------------------------------
 
 void
-loadFMI(FMI& fmi, const std::string& filename, const std::string& name,
-  const std::vector<std::string>& patterns, size_type chars)
+testFMI(FMI& fmi, const std::string& name, const std::vector<std::string>& patterns, size_type chars)
 {
-  sdsl::load_from_file(fmi, filename);
   printSize(name, sdsl::size_in_bytes(fmi), fmi.size());
 
   if(chars > 0)
@@ -115,64 +117,28 @@ loadFMI(FMI& fmi, const std::string& filename, const std::string& name,
   std::cout << std::endl;
 }
 
-//------------------------------------------------------------------------------
-
-struct MergePosition
+void
+loadFMI(FMI& fmi, const std::string& filename, const std::string& name,
+  const std::vector<std::string>& patterns, size_type chars)
 {
-  size_type  index_pos;
-  range_type increment_range;
-
-  MergePosition() : index_pos(0), increment_range(0, 0) {}
-  MergePosition(size_type pos, size_type inc_pos) : index_pos(pos), increment_range(inc_pos, inc_pos) {}
-  MergePosition(size_type pos, range_type range) : index_pos(pos), increment_range(range) {}
-};
+  sdsl::load_from_file(fmi, filename);
+  testFMI(fmi, name, patterns, chars);
+}
 
 void
 merge(FMI& result, FMI& index, FMI& increment,
   const std::vector<std::string>& patterns, size_type chars)
 {
+  double increment_mb = inMegabytes(increment.size());
+
   double start = readTimer();
-
-  RLArray ra;
-  std::vector<RLArray::run_type> buffer;
-  std::stack<MergePosition> positions;
-
-  positions.push(MergePosition(index.sequences(), range_type(0, increment.sequences() - 1)));
-  while(!(positions.empty()))
-  {
-    MergePosition curr = positions.top(); positions.pop();
-    buffer.push_back(RLArray::run_type(curr.index_pos, Range::length(curr.increment_range)));
-    if(buffer.size() >= RUN_BUFFER_SIZE) { add(ra, buffer); buffer.clear(); }
-
-    if(Range::length(curr.increment_range) < increment.alpha.sigma)
-    {
-      for(size_type i = curr.increment_range.first; i <= curr.increment_range.second; i++)
-      {
-        range_type pred = increment.LF(i);
-        if(pred.second != 0)
-        {
-          positions.push(MergePosition(index.LF(curr.index_pos, pred.second), pred.first));
-        }
-      }
-    }
-    else
-    {
-      for(comp_type c = 1; c < increment.alpha.sigma; c++)
-      {
-        range_type prev = increment.LF(curr.increment_range, c);
-        if(!(Range::empty(prev))) { positions.push(MergePosition(index.LF(curr.index_pos, c), prev)); }
-      }
-    }
-  }
-  if(buffer.size() > 0) { add(ra, buffer); buffer.clear(); }
-
+  result = FMI(index, increment);
   double seconds = readTimer() - start;
-  std::cout << "Rank array built in " << seconds << " seconds" << std::endl;
+  std::cout << "BWTs merged in " << seconds << " seconds ("
+            << (increment_mb / seconds) << " MB/s)" << std::endl;
   std::cout << std::endl;
 
-  printHeader("RA"); std::cout << ra.values() << " values in " << ra.size() << " runs" << std::endl;
-  printSize("RA", sdsl::size_in_bytes(ra), increment.size());
-  std::cout << std::endl;
+  testFMI(result, "Merged", patterns, chars);
 }
 
 //------------------------------------------------------------------------------

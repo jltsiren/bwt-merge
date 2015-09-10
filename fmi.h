@@ -54,6 +54,13 @@ public:
 
 //------------------------------------------------------------------------------
 
+  /*
+    This constructor merges a and b, destroying them in the process.
+  */
+  FMI(FMI& a, FMI& b);
+
+//------------------------------------------------------------------------------
+
   template<class Format>
   void load(const std::string& filename)
   {
