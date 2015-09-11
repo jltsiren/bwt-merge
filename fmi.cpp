@@ -114,6 +114,10 @@ struct MergePosition
   MergePosition(size_type pos, range_type range) : a_pos(pos), b_range(range) {}
 };
 
+/*
+  FIXME Later: Have the number of buffers as a parameter. It should probably depend
+  on the number of threads and the size of the thread buffers.
+*/
 struct MergeBuffer
 {
   omp_lock_t first_lock;
