@@ -54,8 +54,8 @@ public:
 
 //------------------------------------------------------------------------------
 
-  const static size_type THREAD_BUFFER_SIZE = 128 * MEGABYTE; // Bytes.
-  const static size_type RUN_BUFFER_SIZE = MEGABYTE;          // Runs.
+  const static size_type THREAD_BUFFER_SIZE = 512 * MEGABYTE; // Bytes.
+  const static size_type RUN_BUFFER_SIZE = 8 * MEGABYTE;      // Runs.
 
   /*
     This constructor merges a and b, destroying them in the process.

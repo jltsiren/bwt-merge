@@ -122,7 +122,15 @@ mergeRA(RLArray& ra, RLArray& thread_buffer, std::vector<RLArray::run_type>& buf
   {
     #pragma omp critical
     {
+#ifdef VERBOSE_STATUS_INFO
+      std::cerr << "buildRA(): Thread " << omp_get_thread_num() << ": adding "
+                << thread_buffer.values() << " new values to RA" << std::endl;
+#endif
       add(ra, thread_buffer); thread_buffer.clear();
+#ifdef VERBOSE_STATUS_INFO
+      std::cerr << "buildRA(): Thread " << omp_get_thread_num() << ": "
+                << ra.values() << " values in RA" << std::endl;
+#endif
     }
   }
 }
@@ -165,6 +173,9 @@ buildRA(const FMI& a, const FMI& b, RLArray& ra, range_type sequence_range)
   }
 
   mergeRA(ra, thread_buffer, buffer, true);
+#ifdef VERBOSE_STATUS_INFO
+  std::cerr << "mergeRA(): Thread " << omp_get_thread_num() << " finished." << std::endl;
+#endif
 }
 
 FMI::FMI(FMI& a, FMI& b)
@@ -174,6 +185,11 @@ FMI::FMI(FMI& a, FMI& b)
     std::cerr << "FMI::FMI(): Cannot merge BWTs with different alphabets." << std::endl;
     std::exit(EXIT_FAILURE);
   }
+
+#ifdef VERBOSE_STATUS_INFO
+  std::cerr << "bwt_merge: " << a.sequences() << " sequences of total length " << a.size() << std::endl;
+  std::cerr << "bwt_merge: Adding " << b.sequences() << " sequences of total length " << b.size() << std::endl;
+#endif
 
   size_type threads = omp_get_max_threads();
   std::vector<range_type> bounds = getBounds(range_type(0, b.sequences() - 1), threads);
@@ -185,8 +201,9 @@ FMI::FMI(FMI& a, FMI& b)
     buildRA(a, b, ra, bounds[thread]);
   }
 
-  std::cout << "Memory usage with RA: " << inMegabytes(memoryUsage()) << " MB" << std::endl;
-  std::cout << std::endl;
+#ifdef VERBOSE_STATUS_INFO
+  std::cerr << "bwt_merge: Memory usage with RA: " << inMegabytes(memoryUsage()) << " MB" << std::endl;
+#endif
 
   this->bwt = BWT(a.bwt, b.bwt, ra);
   this->alpha = a.alpha;
