@@ -104,6 +104,7 @@ public:
 
   inline size_type size() const { return this->bytes; }
   inline size_type blocks() const { return this->data.size(); }
+  inline bool empty() const { return (this->size() == 0); }
 
   inline static size_type block(size_type i) { return i / BLOCK_SIZE; }
   inline static size_type offset(size_type i) { return i % BLOCK_SIZE; }
@@ -394,11 +395,24 @@ public:
   /*
     Builds an RLArray from the source vector. The vector is sorted during construction.
   */
-  explicit RLArray(std::vector<value_type>& source);
-  explicit RLArray(std::vector<run_type>& source);
+  template<class Element>
+  explicit RLArray(std::vector<Element>& source)
+  {
+    this->run_count = 0; this->value_count = 0;
+    if(source.empty()) { return; }
+
+    sequentialSort(source.begin(), source.end());
+    value_type prev = 0;
+    RunBuffer run_buffer;
+    for(size_type i = 0; i < source.size(); i++)
+    {
+      if(run_buffer.add(source[i])) { this->addRun(run_buffer.run, prev); }
+    }
+    run_buffer.flush(); this->addRun(run_buffer.run, prev);
+  }
 
   /*
-    Merges the input arrays and deletes their contents.
+    Merges the input arrays and clears them.
   */
   RLArray(RLArray& a, RLArray& b);
 
@@ -409,6 +423,7 @@ public:
   inline size_type size() const { return this->run_count; }
   inline size_type values() const { return this->value_count; }
   inline size_type bytes() const { return this->data.size(); }
+  inline bool empty() const { return (this->size() == 0); }
 
   size_type serialize(std::ostream& out, sdsl::structure_tree_node* v = nullptr, std::string name = "") const;
   void load(std::istream& in);
@@ -421,36 +436,24 @@ public:
 private:
   void copy(const RLArray& source);
 
-  inline void addRun(value_type value, value_type& prev, length_type length)
+  inline void addRun(run_type run, value_type& prev)
   {
-    ByteCode::write(this->data, value - prev); prev = value;
-    ByteCode::write(this->data, length);
-    this->run_count++; this->value_count += length;
+    ByteCode::write(this->data, run.first - prev); prev = run.first;
+    ByteCode::write(this->data, run.second);
+    this->run_count++; this->value_count += run.second;
   }
 };  // class RLArray
-
-template<class Element>
-void
-add(RLArray& target, std::vector<Element>& values)
-{
-  if(values.empty()) { return; }
-
-  RLArray temp(values);
-  if(target.size() == 0) { target.swap(temp); }
-  else { target = RLArray(target, temp); }
-}
-
-void add(RLArray& target, RLArray& source);
 
 class RLIterator
 {
 public:
-  typedef RLArray::size_type  size_type;
-  typedef RLArray::value_type value_type;
-  typedef RLArray::run_type   run_type;
+  typedef RLArray::size_type   size_type;
+  typedef RLArray::value_type  value_type;
+  typedef RLArray::length_type length_type;
+  typedef RLArray::run_type    run_type;
 
   inline RLIterator(RLArray& _array) :
-    array(_array), pos(0), ptr(0), prev(0), run(0, 0)
+    array(_array), pos(0), ptr(0), run(0,0)
   {
     this->read();
   }
@@ -462,14 +465,12 @@ public:
 
   RLArray&   array;
   size_type  pos, ptr;
-  value_type prev;
   run_type   run;
 
 private:
   inline void read()
   {
-    if(this->end()) { return; }
-    this->prev = this->run.first;
+    if(this->end()) { this->run.first = ~(value_type)0; this->run.second = ~(length_type)0; return; }
     this->run.first += ByteCode::read(this->array.data, this->ptr);
     this->run.second = ByteCode::read(this->array.data, this->ptr);
     this->array.data.clearUntil(this->ptr);
@@ -479,12 +480,13 @@ private:
 class RLConstIterator
 {
 public:
-  typedef RLArray::size_type  size_type;
-  typedef RLArray::value_type value_type;
-  typedef RLArray::run_type   run_type;
+  typedef RLArray::size_type   size_type;
+  typedef RLArray::value_type  value_type;
+  typedef RLArray::length_type length_type;
+  typedef RLArray::run_type    run_type;
 
   inline RLConstIterator(const RLArray& _array) :
-    array(_array), pos(0), ptr(0), prev(0), run(0, 0)
+    array(_array), pos(0), ptr(0), run(0, 0)
   {
     this->read();
   }
@@ -496,14 +498,12 @@ public:
 
   const RLArray&  array;
   size_type       pos, ptr;
-  value_type      prev;
   run_type        run;
 
 private:
   inline void read()
   {
-    if(this->end()) { return; }
-    this->prev = this->run.first;
+    if(this->end()) { this->run.first = ~(value_type)0; this->run.second = ~(length_type)0; return; }
     this->run.first += ByteCode::read(this->array.data, this->ptr);
     this->run.second = ByteCode::read(this->array.data, this->ptr);
   }

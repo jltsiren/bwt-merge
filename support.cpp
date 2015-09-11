@@ -261,6 +261,7 @@ BlockArray::clear()
     this->clear(i);
   }
   this->data.clear();
+  this->bytes = 0;
 }
 
 void
@@ -441,65 +442,25 @@ RLArray::~RLArray()
 {
 }
 
-RLArray::RLArray(std::vector<RLArray::value_type>& source)
-{
-  this->run_count = 0; this->value_count = 0;
-  if(source.empty()) { return; }
-
-  sequentialSort(source.begin(), source.end());
-  value_type prev = 0, curr = source[0];
-  length_type length = 1;
-  for(size_type i = 1; i < source.size(); i++)
-  {
-    if(source[i] == curr) { length++; }
-    else
-    {
-      this->addRun(curr, prev, length);
-      curr = source[i]; length = 1;
-    }
-  }
-  this->addRun(curr, prev, length);
-}
-
-RLArray::RLArray(std::vector<RLArray::run_type>& source)
-{
-  this->run_count = 0; this->value_count = 0;
-  if(source.empty()) { return; }
-
-  sequentialSort(source.begin(), source.end());
-  value_type prev = 0;
-  for(size_type i = 0; i < source.size(); i++) { this->addRun(source[i].first, prev, source[i].second); }
-}
-
 RLArray::RLArray(RLArray& a, RLArray& b)
 {
   this->run_count = 0; this->value_count = 0;
+  if(a.empty()) { this->swap(b); return; }
+  if(b.empty()) { this->swap(a); return; }
 
   iterator a_iter(a), b_iter(b);
   value_type prev = 0;
-  while(!(a_iter.end()) && !(b_iter.end()))
+  RunBuffer run_buffer;
+  while(!(a_iter.end()) || !(b_iter.end()))
   {
-    if(a_iter->first < b_iter->first)
-    {
-      this->addRun(a_iter->first, prev, a_iter->second); ++a_iter;
-    }
-    else if(b_iter->first < a_iter->first)
-    {
-      this->addRun(b_iter->first, prev, b_iter->second); ++b_iter;
-    }
-    else
-    {
-      this->addRun(a_iter->first, prev, a_iter->second + b_iter->second); ++a_iter; ++b_iter;
-    }
+    run_type temp;
+    if(a_iter->first <= b_iter->first) { temp = *a_iter; ++a_iter; }
+    else { temp = *b_iter; ++b_iter; }
+    if(run_buffer.add(temp)) { this->addRun(run_buffer.run, prev); }
   }
-  while(!(a_iter.end()))
-  {
-    this->addRun(a_iter->first, prev, a_iter->second); ++a_iter;
-  }
-  while(!(b_iter.end()))
-  {
-    this->addRun(b_iter->first, prev, b_iter->second); ++b_iter;
-  }
+  run_buffer.flush(); this->addRun(run_buffer.run, prev);
+
+  a.clear(); b.clear();
 }
 
 void
@@ -566,14 +527,6 @@ RLArray::clear()
   this->data.clear();
   this->run_count = 0;
   this->value_count = 0;
-}
-
-void
-add(RLArray& target, RLArray& source)
-{
-  if(source.size() == 0) { return; }
-  if(target.size() == 0) { target.swap(source); }
-  else { target = RLArray(target, source); }
 }
 
 //------------------------------------------------------------------------------
