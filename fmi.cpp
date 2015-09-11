@@ -214,13 +214,14 @@ mergeRA(MergeBuffer& mb, RLArray& thread_buffer, std::vector<RLArray::run_type>&
 
   omp_set_lock(&(mb.ra_lock));
   mb.ra = RLArray(mb.ra, thread_buffer);
+  size_type ra_size = mb.ra.bytes();
   omp_unset_lock(&(mb.ra_lock));
 #ifdef VERBOSE_STATUS_INFO
   #pragma omp critical
   {
     std::cerr << "buildRA(): Thread " << omp_get_thread_num()
               << ": Added the values to the rank array." << std::endl;
-    std::cerr << "buildRA(): " << mb.done() << "% done" << std::endl;
+    std::cerr << "buildRA(): " << mb.done() << "% done; RA size " << inMegabytes(ra_size) << " MB" << std::endl;
   }
 #endif
 }
@@ -266,7 +267,8 @@ buildRA(const FMI& a, const FMI& b, MergeBuffer& mb, range_type sequence_range)
 #ifdef VERBOSE_STATUS_INFO
   #pragma omp critical
   {
-    std::cerr << "buildRA(): Thread " << omp_get_thread_num() << " finished." << std::endl;
+    std::cerr << "buildRA(): Thread " << omp_get_thread_num() << " finished block "
+              << sequence_range << "." << std::endl;
   }
 #endif
 }
@@ -285,13 +287,13 @@ FMI::FMI(FMI& a, FMI& b)
 #endif
 
   size_type threads = omp_get_max_threads();
-  std::vector<range_type> bounds = getBounds(range_type(0, b.sequences() - 1), threads);
+  std::vector<range_type> bounds = getBounds(range_type(0, b.sequences() - 1), 4 * threads);
 
   MergeBuffer mb(b.size());
-  #pragma omp parallel for schedule(static)
-  for(size_type thread = 0; thread < threads; thread++)
+  #pragma omp parallel for schedule(dynamic, 1)
+  for(size_type block = 0; block < bounds.size(); block++)
   {
-    buildRA(a, b, mb, bounds[thread]);
+    buildRA(a, b, mb, bounds[block]);
   }
   mb.flush();
 
