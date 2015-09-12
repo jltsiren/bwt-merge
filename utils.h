@@ -166,6 +166,12 @@ inMegabytes(size_type bytes)
 }
 
 inline double
+inGigabytes(size_type bytes)
+{
+  return bytes / GIGABYTE_DOUBLE;
+}
+
+inline double
 inBPC(size_type bytes, size_type size)
 {
   return (8.0 * bytes) / size;

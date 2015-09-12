@@ -58,7 +58,7 @@ main(int argc, char** argv)
   std::cout << std::endl;
   sdsl::store_to_file(fmi, output);
 
-  std::cout << "Memory usage: " << inMegabytes(memoryUsage()) << " MB" << std::endl;
+  std::cout << "Memory usage: " << inGigabytes(memoryUsage()) << " GB" << std::endl;
   std::cout << std::endl;
 
   return 0;

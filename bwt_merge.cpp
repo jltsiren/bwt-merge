@@ -82,14 +82,14 @@ main(int argc, char** argv)
   loadFMI(fmi2, increment_name, "BWT 2", patterns, chars);
 
 #ifdef VERBOSE_STATUS_INFO
-  std::cerr << "bwt_merge: Memory usage before merging: " << inMegabytes(memoryUsage()) << " MB" << std::endl;
+  std::cerr << "bwt_merge: Memory usage before merging: " << inGigabytes(memoryUsage()) << " GB" << std::endl;
 #endif
 
   FMI merged;
   merge(merged, fmi1, fmi2, patterns, chars);
   sdsl::store_to_file(merged, output_name);
 
-  std::cout << "Peak memory usage: " << inMegabytes(memoryUsage()) << " MB" << std::endl;
+  std::cout << "Peak memory usage: " << inGigabytes(memoryUsage()) << " GB" << std::endl;
   std::cout << std::endl;
 
   return 0;
