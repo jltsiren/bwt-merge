@@ -422,111 +422,30 @@ CumulativeArray::load(std::istream& in)
 
 //------------------------------------------------------------------------------
 
-RLArray::RLArray()
+void open(RLArray<sdsl::int_vector_buffer<8>>& array, const std::string filename,
+  size_type runs, size_type values)
 {
+  array.data = sdsl::int_vector_buffer<8>(filename);
+  array.run_count = runs;
+  array.value_count = values;
+}
+
+template<>
+void
+RLArray<sdsl::int_vector_buffer<8>>::clear()
+{
+  this->data.close();
   this->run_count = 0;
   this->value_count = 0;
 }
 
-RLArray::RLArray(const RLArray& source)
-{
-  this->copy(source);
-}
-
-RLArray::RLArray(RLArray&& source)
-{
-  *this = std::move(source);
-}
-
-RLArray::~RLArray()
-{
-}
-
-RLArray::RLArray(RLArray& a, RLArray& b)
-{
-  this->run_count = 0; this->value_count = 0;
-  if(a.empty()) { this->swap(b); return; }
-  if(b.empty()) { this->swap(a); return; }
-
-  iterator a_iter(a), b_iter(b);
-  value_type prev = 0;
-  RunBuffer run_buffer;
-  while(!(a_iter.end()) || !(b_iter.end()))
-  {
-    run_type temp;
-    if(a_iter->first <= b_iter->first) { temp = *a_iter; ++a_iter; }
-    else { temp = *b_iter; ++b_iter; }
-    if(run_buffer.add(temp)) { this->addRun(run_buffer.run, prev); }
-  }
-  run_buffer.flush(); this->addRun(run_buffer.run, prev);
-
-  a.clear(); b.clear();
-}
-
+template<>
 void
-RLArray::copy(const RLArray& source)
+RLIterator<sdsl::int_vector_buffer<8>>::read()
 {
-  this->data = source.data;
-  this->run_count = source.run_count;
-  this->value_count = source.value_count;
-}
-
-void
-RLArray::swap(RLArray& source)
-{
-  if(this != &source)
-  {
-    this->data.swap(source.data);
-    std::swap(this->run_count, source.run_count);
-    std::swap(this->value_count, source.value_count);
-  }
-}
-
-RLArray&
-RLArray::operator=(const RLArray& source)
-{
-  if(this != &source) { this->copy(source); }
-  return *this;
-}
-
-RLArray&
-RLArray::operator=(RLArray&& source)
-{
-  if(this != &source)
-  {
-    this->data = std::move(source.data);
-    this->run_count = std::move(source.run_count);
-    this->value_count = std::move(source.value_count);
-  }
-  return *this;
-}
-
-RLArray::size_type
-RLArray::serialize(std::ostream& out, sdsl::structure_tree_node* s, std::string name) const
-{
-  sdsl::structure_tree_node* child = sdsl::structure_tree::add_child(s, name, sdsl::util::class_name(*this));
-  size_type written_bytes = 0;
-  written_bytes += this->data.serialize(out, child, "data");
-  written_bytes += sdsl::write_member(this->run_count, out, child, "run_count");
-  written_bytes += sdsl::write_member(this->value_count, out, child, "value_count");
-  sdsl::structure_tree::add_size(child, written_bytes);
-  return written_bytes;
-}
-
-void
-RLArray::load(std::istream& in)
-{
-  this->data.load(in);
-  sdsl::read_member(this->run_count, in);
-  sdsl::read_member(this->value_count, in);
-}
-
-void
-RLArray::clear()
-{
-  this->data.clear();
-  this->run_count = 0;
-  this->value_count = 0;
+  if(this->end()) { this->run.first = ~(value_type)0; this->run.second = ~(length_type)0; return; }
+  this->run.first += ByteCode::read(this->array->data, this->ptr);
+  this->run.second = ByteCode::read(this->array->data, this->ptr);
 }
 
 //------------------------------------------------------------------------------

@@ -133,9 +133,10 @@ BWT::load(std::istream& in)
 
 //------------------------------------------------------------------------------
 
-BWT::BWT(BWT& a, BWT& b, RLArray& ra)
+BWT::BWT(BWT& a, BWT& b, RankArray& ra)
 {
   a.destroy(); b.destroy();
+  ra.open();
 
   size_type a_rle_pos = 0, b_rle_pos = 0;
   size_type a_seq_pos = 0;
@@ -143,8 +144,10 @@ BWT::BWT(BWT& a, BWT& b, RLArray& ra)
   range_type b_run = Run::read(b.data, b_rle_pos); b.data.clearUntil(b_rle_pos);
 
   RunBuffer buffer;
-  for(RLIterator iter(ra); !(iter.end()); ++iter)
+  while(!(ra.iterators.empty()))
   {
+    RankArray::iterator iter = ra.iterators.top(); ra.iterators.pop();
+
     while(a_seq_pos < iter->first)
     {
       size_type length = std::min(iter->first - a_seq_pos, a_run.second);
@@ -165,6 +168,9 @@ BWT::BWT(BWT& a, BWT& b, RLArray& ra)
         b_run = Run::read(b.data, b_rle_pos); b.data.clearUntil(b_rle_pos);
       }
     }
+
+    ++iter;
+    if(!(iter.end())) { ra.iterators.push(iter); }
   }
   while(a_run.second > 0)
   {
@@ -173,6 +179,7 @@ BWT::BWT(BWT& a, BWT& b, RLArray& ra)
     else { a_run.second = 0; }
   }
   buffer.flush(); Run::write(this->data, buffer.run);
+  ra.close();
 
   this->build();
 }
@@ -255,6 +262,39 @@ BWT::hash() const
     for(size_type i = 0; i < run.second; i++) { res = fnv1a_hash((byte_type)(run.first), res); }
   }
   return res;
+}
+
+//------------------------------------------------------------------------------
+
+RankArray::RankArray()
+{
+}
+
+RankArray::~RankArray()
+{
+  this->close();
+  for(size_type i = 0; i < this->filenames.size(); i++) { remove(this->filenames[i].c_str()); }
+}
+
+void
+RankArray::open()
+{
+  this->close();
+  this->inputs = std::vector<array_type>(this->size());
+
+  for(size_type i = 0; i < this->size(); i++)
+  {
+    bwtmerge::open(this->inputs[i], this->filenames[i], this->run_counts[i], this->value_counts[i]);
+    this->iterators.push(iterator(this->inputs[i]));
+  }
+}
+
+void
+RankArray::close()
+{
+  this->iterators = std::priority_queue<iterator, std::vector<iterator>, IterComparator>();
+  for(size_type i = 0; i < this->inputs.size(); i++) { this->inputs[i].clear(); }
+  this->inputs.clear();
 }
 
 //------------------------------------------------------------------------------

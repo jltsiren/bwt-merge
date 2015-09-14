@@ -25,12 +25,16 @@
 #ifndef _BWTMERGE_SEQUENCE_H
 #define _BWTMERGE_SEQUENCE_H
 
+#include <queue>
+
 #include "support.h"
 
 namespace bwtmerge
 {
 
 //------------------------------------------------------------------------------
+
+struct RankArray;
 
 /*
   A basic run-length encoded sequence for alphabet 0-5.
@@ -64,7 +68,7 @@ public:
     This constructor interleaves the source BWTs according to the rank array. All the
     input structures will be destroyed in the process.
   */
-  BWT(BWT& a, BWT&b, RLArray& ra);
+  BWT(BWT& a, BWT&b, RankArray& ra);
 
 //------------------------------------------------------------------------------
 
@@ -226,6 +230,39 @@ private:
   void build();
   void destroy();
 };  // class BWT
+
+//------------------------------------------------------------------------------
+
+struct IterComparator
+{
+  typedef RLArray<sdsl::int_vector_buffer<8>>::iterator iterator;
+
+  inline bool operator() (const iterator& a, const iterator& b) const
+  {
+    return (a.run.first > b.run.first); // The STL priority queue is a maximum queue.
+  }
+};
+
+struct RankArray
+{
+  typedef RLArray<sdsl::int_vector_buffer<8>> array_type;
+  typedef array_type::iterator                iterator;
+
+  RankArray();
+  ~RankArray();
+
+  std::vector<std::string> filenames;
+  std::vector<size_type>   run_counts;
+  std::vector<size_type>   value_counts;
+
+  std::vector<array_type> inputs;
+  std::priority_queue<iterator, std::vector<iterator>, IterComparator> iterators;
+
+  inline size_type size() const { return this->filenames.size(); }
+
+  void open();
+  void close();
+};
 
 //------------------------------------------------------------------------------
 

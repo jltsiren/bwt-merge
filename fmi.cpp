@@ -104,32 +104,24 @@ FMI::load(std::istream& in)
 
 //------------------------------------------------------------------------------
 
-struct MergePosition
-{
-  size_type  a_pos;
-  range_type b_range;
-
-  MergePosition() : a_pos(0), b_range(0, 0) {}
-  MergePosition(size_type a, size_type b) : a_pos(a), b_range(b, b) {}
-  MergePosition(size_type pos, range_type range) : a_pos(pos), b_range(range) {}
-};
-
-/*
-  FIXME Later: Have the number of buffers as a parameter. It should probably depend
-  on the number of threads and the size of the thread buffers.
-*/
 struct MergeBuffer
 {
-  std::vector<omp_lock_t> buffer_locks;
-  std::vector<RLArray>    merge_buffers;
+  typedef RLArray<BlockArray> buffer_type;
+  typedef RLArray<BlockArray>::run_type run_type;
+
+  std::vector<omp_lock_t>  buffer_locks;
+  std::vector<buffer_type> merge_buffers;
+
+  const static std::string TEMP_NAME;
 
   omp_lock_t ra_lock;
-  RLArray    ra;
+  RankArray  ra;
+  size_type  ra_values, ra_bytes;
 
   size_type  size;
 
   MergeBuffer(size_type _size, size_type buffers = FMI::MERGE_BUFFERS) :
-    buffer_locks(buffers), merge_buffers(buffers), size(_size)
+    buffer_locks(buffers), merge_buffers(buffers), ra_values(0), ra_bytes(0), size(_size)
   {
     for(size_type i = 0; i < buffer_locks.size(); i++) { omp_init_lock(&(this->buffer_locks[i])); }
     omp_init_lock(&(this->ra_lock));
@@ -141,30 +133,58 @@ struct MergeBuffer
     omp_destroy_lock(&(this->ra_lock));
   }
 
-  double done() const
+  void write(buffer_type& buffer)
   {
-    return (100.0 * this->ra.values()) / this->size;
+    if(buffer.empty()) { return; }
+
+    omp_set_lock(&(this->ra_lock));
+    std::string filename = tempFile(TEMP_NAME);
+    this->ra.filenames.push_back(filename);
+    this->ra.run_counts.push_back(buffer.size());
+    this->ra.value_counts.push_back(buffer.values());
+    this->ra_values += buffer.values();
+    this->ra_bytes += buffer.bytes() + sizeof(size_type);
+#ifdef VERBOSE_STATUS_INFO
+    double ra_done = (100.0 * this->ra_values) / this->size;
+    double ra_gb = inGigabytes(this->ra_bytes);
+#endif
+    omp_unset_lock(&(this->ra_lock));
+
+    buffer.write(filename); buffer.clear();
+#ifdef VERBOSE_STATUS_INFO
+    #pragma omp critical
+    {
+      std::cerr << "buildRA(): Thread " << omp_get_thread_num()
+                << ": Added the values to the rank array." << std::endl;
+      std::cerr << "buildRA(): " << ra_done << "% done; RA size " << ra_gb << " GB" << std::endl;
+    }
+#endif
   }
 
   void flush()
   {
-    #pragma omp critical
-    {
-      std::cerr << "buildRA(): Flushing the buffers." << std::endl;
-    }
     for(size_type i = 1; i < this->merge_buffers.size(); i++)
     {
-      this->merge_buffers[i] = RLArray(this->merge_buffers[i], this->merge_buffers[i - 1]);
+      this->merge_buffers[i] = buffer_type(this->merge_buffers[i], this->merge_buffers[i - 1]);
     }
-    this->ra = RLArray(this->ra, this->merge_buffers[this->merge_buffers.size() - 1]);
+    #pragma omp critical
+    {
+      std::cerr << "buildRA(): Thread " << omp_get_thread_num() << ": Flushing "
+                << this->merge_buffers[this->merge_buffers.size() - 1].values()
+                << " values to disk." << std::endl;
+    }
+    this->write(this->merge_buffers[this->merge_buffers.size() - 1]);
   }
 };
 
+const std::string MergeBuffer::TEMP_NAME = ".bwtmerge";
+
 void
-mergeRA(MergeBuffer& mb, RLArray& thread_buffer, std::vector<RLArray::run_type>& buffer, bool force)
+mergeRA(MergeBuffer& mb, MergeBuffer::buffer_type& thread_buffer,
+  std::vector<MergeBuffer::run_type>& buffer, bool force)
 {
-  RLArray temp_buffer(buffer); buffer.clear();
-  thread_buffer = RLArray(thread_buffer, temp_buffer);
+  MergeBuffer::buffer_type temp_buffer(buffer); buffer.clear();
+  thread_buffer = MergeBuffer::buffer_type(thread_buffer, temp_buffer);
   if(!force && thread_buffer.bytes() < FMI::THREAD_BUFFER_SIZE) { return; }
 
 #ifdef VERBOSE_STATUS_INFO
@@ -193,37 +213,38 @@ mergeRA(MergeBuffer& mb, RLArray& thread_buffer, std::vector<RLArray::run_type>&
 #endif
       return;
     }
-    thread_buffer = RLArray(thread_buffer, temp_buffer);
+    thread_buffer = MergeBuffer::buffer_type(thread_buffer, temp_buffer);
   }
 
-  omp_set_lock(&(mb.ra_lock));
-  mb.ra = RLArray(mb.ra, thread_buffer);
-  size_type ra_size = mb.ra.bytes();
-  omp_unset_lock(&(mb.ra_lock));
-#ifdef VERBOSE_STATUS_INFO
-  #pragma omp critical
-  {
-    std::cerr << "buildRA(): Thread " << omp_get_thread_num()
-              << ": Added the values to the rank array." << std::endl;
-    std::cerr << "buildRA(): " << mb.done() << "% done; RA size " << inGigabytes(ra_size) << " GB" << std::endl;
-  }
-#endif
+  mb.write(thread_buffer);
 }
+
+//------------------------------------------------------------------------------
+
+struct MergePosition
+{
+  size_type  a_pos;
+  range_type b_range;
+
+  MergePosition() : a_pos(0), b_range(0, 0) {}
+  MergePosition(size_type a, size_type b) : a_pos(a), b_range(b, b) {}
+  MergePosition(size_type pos, range_type range) : a_pos(pos), b_range(range) {}
+};
 
 void
 buildRA(const FMI& a, const FMI& b, MergeBuffer& mb, range_type sequence_range)
 {
   if(Range::empty(sequence_range)) { return; }
 
-  RLArray thread_buffer;
-  std::vector<RLArray::run_type> buffer;
+  MergeBuffer::buffer_type thread_buffer;
+  std::vector<MergeBuffer::run_type> buffer;
   std::stack<MergePosition> positions;
 
   positions.push(MergePosition(a.sequences(), sequence_range));
   while(!(positions.empty()))
   {
     MergePosition curr = positions.top(); positions.pop();
-    buffer.push_back(RLArray::run_type(curr.a_pos, Range::length(curr.b_range)));
+    buffer.push_back(MergeBuffer::run_type(curr.a_pos, Range::length(curr.b_range)));
     if(buffer.size() >= FMI::RUN_BUFFER_SIZE) { mergeRA(mb, thread_buffer, buffer, false); }
 
     if(Range::length(curr.b_range) < b.alpha.sigma)
@@ -284,8 +305,7 @@ FMI::FMI(FMI& a, FMI& b)
 
 #ifdef VERBOSE_STATUS_INFO
   double seconds = readTimer() - start;
-  std::cerr << "bwt_merge: RA built in " << seconds << " seconds; size "
-            << inGigabytes(sdsl::size_in_bytes(mb.ra)) << " GB" << std::endl;
+  std::cerr << "bwt_merge: RA built in " << seconds << " seconds" << std::endl;
   std::cerr << "bwt_merge: Memory usage with RA: " << inGigabytes(memoryUsage()) << " GB" << std::endl;
 #endif
 

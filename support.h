@@ -185,6 +185,20 @@ struct ByteCode
     return res;
   }
 
+  template<class ByteArray>
+  static value_type read(ByteArray& array, size_type& i)
+  {
+    size_type offset = 0;
+    value_type res = array[i] & DATA_MASK;
+    while(array[i] & NEXT_BYTE)
+    {
+      i++; offset += DATA_BITS;
+      res += ((value_type)(array[i] & DATA_MASK)) << offset;
+    }
+    i++;
+    return res;
+  }
+
   /*
     Encodes the value and stores it in the array using push_back().
   */
@@ -369,28 +383,32 @@ private:
 //------------------------------------------------------------------------------
 
 /*
-  A run-length encoded non-decreasing integer array. The non-const iterator is
-  destructive: it deletes the blocks it has progressed past.
+  A run-length encoded non-decreasing integer array, based on any byte array with
+  operator[] and member function push_back(). Intended usage is RLArray<BlockArray>
+  in memory and RLArray<sdsl::int_vector_buffer<8>> on disk. Note that the iterator
+  is destructive if the array type is BlockArray.
+
+  Note that there is no support for serialize() / load().
 */
 
+template<class ByteArray>
 class RLIterator;
-class RLConstIterator;
 
+template<class ByteArray>
 class RLArray
 {
 public:
-  typedef BlockArray::size_type size_type;
-  typedef bwtmerge::size_type   value_type;
-  typedef bwtmerge::size_type   length_type;
+  typedef bwtmerge::size_type size_type;
+  typedef bwtmerge::size_type value_type;
+  typedef bwtmerge::size_type length_type;
   typedef std::pair<value_type, length_type> run_type;
 
-  typedef RLIterator      iterator;
-  typedef RLConstIterator const_iterator;
+  typedef RLIterator<ByteArray> iterator;
 
-  RLArray();
-  RLArray(const RLArray& source);
-  RLArray(RLArray&& source);
-  ~RLArray();
+  RLArray() { this->run_count = 0; this->value_count = 0; }
+  RLArray(const RLArray& source) { this->copy(source); }
+  RLArray(RLArray&& source) { *this = std::move(source); }
+  ~RLArray() { }
 
   /*
     Builds an RLArray from the source vector. The vector is sorted during construction.
@@ -414,27 +432,83 @@ public:
   /*
     Merges the input arrays and clears them.
   */
-  RLArray(RLArray& a, RLArray& b);
+  RLArray(RLArray& a, RLArray& b)
+  {
+    this->run_count = 0; this->value_count = 0;
+    if(a.empty()) { this->swap(b); return; }
+    if(b.empty()) { this->swap(a); return; }
 
-  void swap(RLArray& source);
-  RLArray& operator=(const RLArray& source);
-  RLArray& operator=(RLArray&& source);
+    iterator a_iter(a), b_iter(b);
+    value_type prev = 0;
+    RunBuffer run_buffer;
+    while(!(a_iter.end()) || !(b_iter.end()))
+    {
+      run_type temp;
+      if(a_iter->first <= b_iter->first) { temp = *a_iter; ++a_iter; }
+      else { temp = *b_iter; ++b_iter; }
+      if(run_buffer.add(temp)) { this->addRun(run_buffer.run, prev); }
+    }
+    run_buffer.flush(); this->addRun(run_buffer.run, prev);
+
+    a.clear(); b.clear();
+  }
+
+  void swap(RLArray& source)
+  {
+    if(this != &source)
+    {
+      this->data.swap(source.data);
+      std::swap(this->run_count, source.run_count);
+      std::swap(this->value_count, source.value_count);
+    }
+  }
+
+
+  RLArray& operator=(const RLArray& source)
+  {
+    if(this != &source) { this->copy(source); }
+    return *this;
+  }
+
+  RLArray& operator=(RLArray&& source)
+  {
+    if(this != &source)
+    {
+      this->data = std::move(source.data);
+      this->run_count = std::move(source.run_count);
+      this->value_count = std::move(source.value_count);
+    }
+    return *this;
+  }
 
   inline size_type size() const { return this->run_count; }
   inline size_type values() const { return this->value_count; }
   inline size_type bytes() const { return this->data.size(); }
   inline bool empty() const { return (this->size() == 0); }
 
-  size_type serialize(std::ostream& out, sdsl::structure_tree_node* v = nullptr, std::string name = "") const;
-  void load(std::istream& in);
+  void clear()
+  {
+    this->data.clear();
+    this->run_count = this->value_count = 0;
+  }
 
-  void clear();
+  void write(const std::string& filename)
+  {
+    sdsl::int_vector_buffer<8> out(filename, std::ios::out);
+    for(size_type i = 0; i < this->bytes(); i++) { out.push_back(this->data[i]); }
+    out.close();
+  }
 
-  BlockArray data;
-  size_type  run_count, value_count;
+  ByteArray data;
+  size_type run_count, value_count;
 
 private:
-  void copy(const RLArray& source);
+  void copy(const RLArray& source)
+  {
+    this->data = source.data;
+    this->run_count = source.run_count;
+    this->value_count = source.value_count;
+  }
 
   inline void addRun(run_type run, value_type& prev)
   {
@@ -444,70 +518,60 @@ private:
   }
 };  // class RLArray
 
+void open(RLArray<sdsl::int_vector_buffer<8>>& array, const std::string filename,
+  size_type runs, size_type values);
+
+template<>
+void RLArray<sdsl::int_vector_buffer<8>>::clear();
+
+//------------------------------------------------------------------------------
+
+template<class ByteArray>
 class RLIterator
 {
 public:
-  typedef RLArray::size_type   size_type;
-  typedef RLArray::value_type  value_type;
-  typedef RLArray::length_type length_type;
-  typedef RLArray::run_type    run_type;
+  typedef typename RLArray<ByteArray>::size_type size_type;
+  typedef typename RLArray<ByteArray>::value_type value_type;
+  typedef typename RLArray<ByteArray>::length_type length_type;
+  typedef typename RLArray<ByteArray>::run_type run_type;
 
-  inline RLIterator(RLArray& _array) :
-    array(_array), pos(0), ptr(0), run(0,0)
+  inline RLIterator() :
+    array(0), pos(0), ptr(0), run(0, 0)
+  {
+  }
+
+  inline RLIterator(RLArray<ByteArray>& _array) :
+    array(&_array), pos(0), ptr(0), run(0, 0)
   {
     this->read();
+  }
+
+  inline RLIterator(const RLIterator& source) :
+    array(source.array), pos(source.pos), ptr(source.ptr), run(source.run)
+  {
   }
 
   inline run_type operator* () const { return this->run; }
   inline run_type* operator-> () { return &(this->run); }
   inline void operator++ () { this->pos++; this->read(); }
-  inline bool end() const { return (this->pos >= this->array.size()); }
+  inline bool end() const { return (this->pos >= this->array->size()); }
 
-  RLArray&   array;
-  size_type  pos, ptr;
-  run_type   run;
+  RLArray<ByteArray>* array;
+  size_type pos, ptr;
+  run_type run;
 
 private:
   inline void read()
   {
     if(this->end()) { this->run.first = ~(value_type)0; this->run.second = ~(length_type)0; return; }
-    this->run.first += ByteCode::read(this->array.data, this->ptr);
-    this->run.second = ByteCode::read(this->array.data, this->ptr);
-    this->array.data.clearUntil(this->ptr);
+    this->run.first += ByteCode::read(this->array->data, this->ptr);
+    this->run.second = ByteCode::read(this->array->data, this->ptr);
+    this->array->data.clearUntil(this->ptr);
   }
 };  // class RLIterator
 
-class RLConstIterator
-{
-public:
-  typedef RLArray::size_type   size_type;
-  typedef RLArray::value_type  value_type;
-  typedef RLArray::length_type length_type;
-  typedef RLArray::run_type    run_type;
-
-  inline RLConstIterator(const RLArray& _array) :
-    array(_array), pos(0), ptr(0), run(0, 0)
-  {
-    this->read();
-  }
-
-  inline run_type operator* () const { return this->run; }
-  inline const run_type* operator-> () const { return &(this->run); }
-  inline void operator++ () { this->pos++; this->read(); }
-  inline bool end() const { return (this->pos >= this->array.size()); }
-
-  const RLArray&  array;
-  size_type       pos, ptr;
-  run_type        run;
-
-private:
-  inline void read()
-  {
-    if(this->end()) { this->run.first = ~(value_type)0; this->run.second = ~(length_type)0; return; }
-    this->run.first += ByteCode::read(this->array.data, this->ptr);
-    this->run.second = ByteCode::read(this->array.data, this->ptr);
-  }
-};  // class RLConstIterator
+template<>
+void RLIterator<sdsl::int_vector_buffer<8>>::read();
 
 //------------------------------------------------------------------------------
 

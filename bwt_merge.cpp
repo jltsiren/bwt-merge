@@ -35,11 +35,10 @@ const size_type RUN_BUFFER_SIZE = MEGABYTE;
 
 //------------------------------------------------------------------------------
 
-void loadFMI(FMI& fmi, const std::string& filename, const std::string& name,
-  const std::vector<std::string>& patterns, size_type chars);
+void verifyFMI(FMI& fmi, const std::string& name,
+  const std::vector<std::string>& patterns, std::vector<size_type>& results);
 
-void merge(FMI& result, FMI& index, FMI& increment,
-  const std::vector<std::string>& patterns, size_type chars);
+void merge(FMI& result, FMI& index, FMI& increment);
 
 //------------------------------------------------------------------------------
 
@@ -69,25 +68,50 @@ main(int argc, char** argv)
   std::cout << std::endl;
 
   std::vector<std::string> patterns;
-  size_type chars = 0;
   if(verify)
   {
-    chars = readRows(pattern_name, patterns, true);
+    size_type chars = readRows(pattern_name, patterns, true);
     std::cout << "Read " << patterns.size() << " patterns of total length " << chars << std::endl;
     std::cout << std::endl;
   }
 
-  FMI fmi1, fmi2;
-  loadFMI(fmi1, index_name, "BWT 1", patterns, chars);
-  loadFMI(fmi2, increment_name, "BWT 2", patterns, chars);
+  FMI index;
+  std::vector<size_type> index_results;
+  sdsl::load_from_file(index, index_name);
+  verifyFMI(index, "BWT 1", patterns, index_results);
+
+  FMI increment;
+  std::vector<size_type> increment_results;
+  sdsl::load_from_file(increment, increment_name);
+  verifyFMI(increment, "BWT 2", patterns, increment_results);
 
 #ifdef VERBOSE_STATUS_INFO
   std::cerr << "bwt_merge: Memory usage before merging: " << inGigabytes(memoryUsage()) << " GB" << std::endl;
 #endif
 
   FMI merged;
-  merge(merged, fmi1, fmi2, patterns, chars);
+  std::vector<size_type> merged_results;
+  merge(merged, index, increment);
   sdsl::store_to_file(merged, output_name);
+  verifyFMI(merged, "Merged", patterns, merged_results);
+
+  if(verify)
+  {
+    size_type errors = 0;
+    for(size_type i = 0; i < patterns.size(); i++)
+    {
+      if(merged_results[i] != index_results[i] + increment_results[i]) { errors++; }
+    }
+    if(errors > 0)
+    {
+      std::cout << "Verification failed for " << errors << " patterns." << std::endl;
+    }
+    else
+    {
+      std::cout << "Verification successful." << std::endl;
+    }
+    std::cout << std::endl;
+  }
 
   std::cout << "Peak memory usage: " << inGigabytes(memoryUsage()) << " GB" << std::endl;
   std::cout << std::endl;
@@ -98,17 +122,23 @@ main(int argc, char** argv)
 //------------------------------------------------------------------------------
 
 void
-testFMI(FMI& fmi, const std::string& name, const std::vector<std::string>& patterns, size_type chars)
+verifyFMI(FMI& fmi, const std::string& name,
+  const std::vector<std::string>& patterns, std::vector<size_type>& results)
 {
+  size_type chars = 0;
+  for(size_type i = 0; i < patterns.size(); i++) { chars += patterns[i].length(); }
+  results.resize(patterns.size());
+
   printSize(name, sdsl::size_in_bytes(fmi), fmi.size());
 
   if(chars > 0)
   {
     double start = readTimer();
     size_type found = 0, matches = 0;
-    for(auto pattern : patterns)
+    for(size_type i = 0; i < patterns.size(); i++)
     {
-      range_type range = fmi.find(pattern);
+      range_type range = fmi.find(patterns[i]);
+      results[i] = Range::length(range);
       if(!(Range::empty(range))) { found++; matches += Range::length(range); }
     }
     double seconds = readTimer() - start;
@@ -119,16 +149,7 @@ testFMI(FMI& fmi, const std::string& name, const std::vector<std::string>& patte
 }
 
 void
-loadFMI(FMI& fmi, const std::string& filename, const std::string& name,
-  const std::vector<std::string>& patterns, size_type chars)
-{
-  sdsl::load_from_file(fmi, filename);
-  testFMI(fmi, name, patterns, chars);
-}
-
-void
-merge(FMI& result, FMI& index, FMI& increment,
-  const std::vector<std::string>& patterns, size_type chars)
+merge(FMI& result, FMI& index, FMI& increment)
 {
   double increment_mb = inMegabytes(increment.size());
 
@@ -138,8 +159,6 @@ merge(FMI& result, FMI& index, FMI& increment,
   std::cout << "BWTs merged in " << seconds << " seconds ("
             << (increment_mb / seconds) << " MB/s)" << std::endl;
   std::cout << std::endl;
-
-  testFMI(result, "Merged", patterns, chars);
 }
 
 //------------------------------------------------------------------------------
