@@ -575,6 +575,59 @@ void RLIterator<sdsl::int_vector_buffer<8>>::read();
 
 //------------------------------------------------------------------------------
 
+struct RankArray
+{
+  typedef RLArray<sdsl::int_vector_buffer<8>> array_type;
+  typedef array_type::iterator                iterator;
+
+  RankArray();
+  ~RankArray();
+
+  std::vector<std::string> filenames;
+  std::vector<size_type>   run_counts;
+  std::vector<size_type>   value_counts;
+
+  std::vector<array_type> inputs;
+  std::vector<iterator>   iterators;
+
+  inline size_type size() const { return this->filenames.size(); }
+
+  void open();
+  void close();
+
+  // Heap operations.
+  inline static size_type parent(size_type i) { return (i - 1) / 2; }
+  inline static size_type left(size_type i) { return 2 * i + 1; }
+  inline static size_type right(size_type i) { return 2 * i + 2; }
+
+  inline size_type smaller(size_type i, size_type j) const
+  {
+    return (this->iterators[j].run.first < this->iterators[i].run.first ? j : i);
+  }
+
+  inline void down(size_type i)
+  {
+    while(left(i) < this->size())
+    {
+      size_type next = this->smaller(i, left(i));
+      if(right(i) < this->size()) { next = this->smaller(next, right(i)); }
+      if(next == i) { return; }
+      std::swap(this->iterators[i], this->iterators[next]);
+      i = next;
+    }
+  }
+
+  void heapify();
+
+private:
+  RankArray(const RankArray&);
+  RankArray(RankArray&&);
+  RankArray& operator= (const RankArray&);
+  RankArray& operator= (RankArray&&);
+};
+
+//------------------------------------------------------------------------------
+
 } // namespace bwtmerge
 
 #endif // _BWTMERGE_SUPPORT_H

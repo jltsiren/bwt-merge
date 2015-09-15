@@ -144,13 +144,11 @@ BWT::BWT(BWT& a, BWT& b, RankArray& ra)
   range_type b_run = Run::read(b.data, b_rle_pos); b.data.clearUntil(b_rle_pos);
 
   RunBuffer buffer;
-  while(!(ra.iterators.empty()))
+  while(!(ra.iterators[0].end()))
   {
-    RankArray::iterator iter = ra.iterators.top(); ra.iterators.pop();
-
-    while(a_seq_pos < iter->first)
+    while(a_seq_pos < ra.iterators[0]->first)
     {
-      size_type length = std::min(iter->first - a_seq_pos, a_run.second);
+      size_type length = std::min(ra.iterators[0]->first - a_seq_pos, a_run.second);
       if(buffer.add(a_run.first, length)) { Run::write(this->data, buffer.run); }
       a_run.second -= length; a_seq_pos += length;
       if(a_run.second == 0 && a_rle_pos < a.data.size())
@@ -158,19 +156,18 @@ BWT::BWT(BWT& a, BWT& b, RankArray& ra)
         a_run = Run::read(a.data, a_rle_pos); a.data.clearUntil(a_rle_pos);
       }
     }
-    while(iter->second > 0)
+    while(ra.iterators[0]->second > 0)
     {
-      size_type length = std::min(iter->second, b_run.second);
+      size_type length = std::min(ra.iterators[0]->second, b_run.second);
       if(buffer.add(b_run.first, length)) { Run::write(this->data, buffer.run); }
-      b_run.second -= length; iter->second -= length;
+      b_run.second -= length; ra.iterators[0]->second -= length;
       if(b_run.second == 0 && b_rle_pos < b.data.size())
       {
         b_run = Run::read(b.data, b_rle_pos); b.data.clearUntil(b_rle_pos);
       }
     }
 
-    ++iter;
-    if(!(iter.end())) { ra.iterators.push(iter); }
+    ++(ra.iterators[0]); ra.down(0);
   }
   while(a_run.second > 0)
   {
@@ -262,39 +259,6 @@ BWT::hash() const
     for(size_type i = 0; i < run.second; i++) { res = fnv1a_hash((byte_type)(run.first), res); }
   }
   return res;
-}
-
-//------------------------------------------------------------------------------
-
-RankArray::RankArray()
-{
-}
-
-RankArray::~RankArray()
-{
-  this->close();
-  for(size_type i = 0; i < this->filenames.size(); i++) { remove(this->filenames[i].c_str()); }
-}
-
-void
-RankArray::open()
-{
-  this->close();
-  this->inputs = std::vector<array_type>(this->size());
-
-  for(size_type i = 0; i < this->size(); i++)
-  {
-    bwtmerge::open(this->inputs[i], this->filenames[i], this->run_counts[i], this->value_counts[i]);
-    this->iterators.push(iterator(this->inputs[i]));
-  }
-}
-
-void
-RankArray::close()
-{
-  this->iterators = std::priority_queue<iterator, std::vector<iterator>, IterComparator>();
-  for(size_type i = 0; i < this->inputs.size(); i++) { this->inputs[i].clear(); }
-  this->inputs.clear();
 }
 
 //------------------------------------------------------------------------------

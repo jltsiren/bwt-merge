@@ -450,4 +450,54 @@ RLIterator<sdsl::int_vector_buffer<8>>::read()
 
 //------------------------------------------------------------------------------
 
+RankArray::RankArray()
+{
+}
+
+RankArray::~RankArray()
+{
+  this->close();
+  for(size_type i = 0; i < this->filenames.size(); i++) { remove(this->filenames[i].c_str()); }
+}
+
+void
+RankArray::open()
+{
+  this->close();
+  this->inputs = std::vector<array_type>(this->size());
+  this->iterators = std::vector<iterator>(this->size());
+
+  for(size_type i = 0; i < this->size(); i++)
+  {
+    bwtmerge::open(this->inputs[i], this->filenames[i], this->run_counts[i], this->value_counts[i]);
+    this->iterators[i] = iterator(this->inputs[i]);
+  }
+
+  this->heapify();
+}
+
+void
+RankArray::close()
+{
+  this->iterators.clear();
+  for(size_type i = 0; i < this->inputs.size(); i++) { this->inputs[i].clear(); }
+  this->inputs.clear();
+}
+
+void
+RankArray::heapify()
+{
+  if(this->size() <= 1) { return; }
+
+  size_type i = parent(this->size() - 1);
+  while(true)
+  {
+    this->down(i);
+    if(i == 0) { break; }
+    i--;
+  }
+}
+
+//------------------------------------------------------------------------------
+
 } // namespace bwtmerge
