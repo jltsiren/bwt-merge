@@ -14,6 +14,20 @@ There are two tools in the package:
 
 `bwt_merge input1 input2 output [patterns]` reads the native format BWT files `input1` and `input2`, merges them, and writes the merged BWT to file `output` in the native format. The sequences from `input2` are inserted into `input1`, so `input2` should usually be the smaller of the two. If the optional parameter `patterns` is present, the merging is verified by querying the BWTs by patterns read from file `patterns` (one pattern per line).
 
+## Current performance
+
+The input consists of two BWT files from the ReadServer project: `AA.bwt` and `TT.bwt`. The files contain the unique (error-corrected, trimmed) reads ending in AA or TT, respectively, from the phase 3 of the 1000 Genomes Project.
+
+|File         |     AA|     TT| Merged|
+|-------------|:-----:|:-----:|:-----:|
+|Size         |438 Gbp|436 Gbp|874 GBp|
+|Sequences    |  4.69G|  4.67G|  9.37G|
+|SGA format   |39.9 GB|40.0 GB|      –|
+|SGA + index  |48.3 GB|48.4 GB|      –|
+|Native format|38.5 GB|38.7 GB|71.3 GB|
+
+Merging the BWTs took 14.8 hours (around 8 Mbp/s) and required 161 gigabytes of memory and 268 gigabytes of temporary disk space. The experiment was run on a system with two 16-core AMD Opteron 6378 processors and 256 gigabytes of memory.
+
 ## Background
 
 Building the BWT is a solved problem for sequence collections of up to hundreds of gigabytes in size. For larger collections, there are several issues to consider:
