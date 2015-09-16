@@ -1,15 +1,29 @@
 # BWT-merge
 
-Building the Burrows-Wheeler transform (BWT) is a solved problem for sequence collections of up to hundreds of gigabytes in size. For larger collections, there are several issues to consider:
+This is a tool for merging the Burrows-Wheeler transforms (BWT) of large read collections. Querying the merged BWT is often faster than querying the BWT of each dataset separately. If the datasets are similar (e.g. reads from similar genomes), a run-length encoded merged BWT will usually be smaller than the run-length encoded BWTs of individual datasets.
+
+If the dataset is up to a few hundred gigabytes in size, it is probably more practical to use another tool (see "Algorithms and implementations" below) to build the merged BWT directly.
+
+## Usage
+
+The implementation is based on the [Succinct Data Structures Library 2.0 (SDSL)](https://github.com/simongog/sdsl-lite). To compile, set `SDSL_DIR` in the Makefile to point to your SDSL directory. As the implementation uses C++11, OpenMP, and libstdc++ parallel mode, you need g++ 4.7 or newer to compile. Comment out the line `OUTPUT_FLAGS=-DVERBOSE_STATUS_INFO` if you do not want the merging tool to output status information to `stderr`.
+
+There are two tools in the package:
+
+`bwt_convert input output` reads a run-length encoded BWT built by the [String Graph Assembler](https://github.com/jts/sga) from file `input` and writes it to file `output` in the native format of BWT-merge. The converted file is often a bit smaller than the input, even though it includes rank/select indexes.
+
+`bwt_merge input1 input2 output [patterns]` reads the native format BWT files `input1` and `input2`, merges them, and writes the merged BWT to file `output` in the native format. The sequences from `input2` are inserted into `input1`, so `input2` should usually be the smaller of the two. If the optional parameter `patterns` is present, the merging is verified by querying the BWTs by patterns read from file `patterns` (one pattern per line).
+
+## Background
+
+Building the BWT is a solved problem for sequence collections of up to hundreds of gigabytes in size. For larger collections, there are several issues to consider:
 
 * **Construction time:** As a rough guideline, an algorithm indexing 1 MB/s is good for up to 100 gigabytes of data, and somewhat useful until 1 terabyte. Larger datasets require faster algorithms.
 * **Construction space:** When the datasets are much larger than the amount of memory available, we cannot afford using even a single bit of working space per input character.
 * **Available hardware:** In a typical computer cluster, a single node has two CPUs (with up to tens of cores), tens to hundreds of gigabytes of local memory, a limited amount of local disk space, and large amounts of shared (but often slow) disk space. Some tools require fast GPUs or large amounts of fast disk space, which are generally not available.
 * **Resource usage:** Merging large BWTs is easy by doing a lot of redundant work on multiple nodes. Because computer clusters generally do not have large amounts of unused capacity, good tools should make an efficient use of resources.
 
-The purpose of this tool is to merge run-length encoded BWTs of read collections on a single node. To speed up the computation, the tool will use multiple threads and take advantage of the run-length encoding when building the merging structures. The structures themselves will be run-length encoded, hopefully requiring similar space as the merged BWT.
-
-## Existing algorithms
+## Algorithms and implementations
 
 There are several BWT construction algorithms based on updating an existing BWT. Some algorithms **extend** sequences already in the collection, updating *BWT(T[i+1,j])* to *BWT(T[i,j])*. Others **insert** new sequences to the collection, updating *BWT(S)* to *BWT(S,T)*. In both cases, the algorithm can either do **batch updates** to a **static** BWT representation, or use a **dynamic** representation for the BWT. Algorithms with a static BWT representation require more working space, while algorithms with a dynamic representation have more space overhead for the BWT.
 
@@ -21,7 +35,7 @@ Some common implementations include:
 * [ropebwt](https://github.com/lh3/ropebwt): (extend, static) or (insert by extending, dynamic)
 * [ropebwt2](https://github.com/lh3/ropebwt2): (insert by extending, dynamic)
 
-As this tool will merge existing BWTs, it will be (insert, static).
+As this tool merges existing BWTs, it is (insert, static).
 
 There are also other algorithms for building the BWT for large read collections They are based on partitioning the suffixes, sorting each of the partitions separately, and building the BWT directly.
 
