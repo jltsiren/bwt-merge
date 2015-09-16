@@ -53,6 +53,21 @@ As this tool merges existing BWTs, it is (insert, static).
 
 There are also other algorithms for building the BWT for large read collections They are based on partitioning the suffixes, sorting each of the partitions separately, and building the BWT directly.
 
+## Future work
+
+* Input/output in any supported BWT format.
+* Different options for where the sequences from `input2` are inserted:
+  * after the sequences from `input1` (current behavior)
+  * in reverse lexicographic order
+  * by position in the reference
+* An option to remove duplicate sequences. 
+* Adjustable construction parameters:
+  * number of threads and sequence blocks
+  * size of thread-specific buffers
+  * number of merge buffers
+* A useful header for the native file format.
+* Documentation in the wiki.
+
 ## References
 
 Wing-Kai Hon, Tak-Wah Lam, Kunihiko Sadakane, Wing-Kin Sung, Siu-Ming Yiu:
