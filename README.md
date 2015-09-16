@@ -20,7 +20,7 @@ The input consists of two BWT files from the ReadServer project: `AA.bwt` and `T
 
 |File         |     AA|     TT| Merged|
 |-------------|:-----:|:-----:|:-----:|
-|Size         |438 Gbp|436 Gbp|874 GBp|
+|Size         |438 Gbp|436 Gbp|874 Gbp|
 |Sequences    |  4.69G|  4.67G|  9.37G|
 |SGA format   |39.9 GB|40.0 GB|      –|
 |SGA + index  |48.3 GB|48.4 GB|      –|
