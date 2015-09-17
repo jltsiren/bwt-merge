@@ -16,17 +16,31 @@ There are two tools in the package:
 
 ## Current performance
 
-The input consists of two BWT files from the ReadServer project: `AA.bwt` and `TT.bwt`. The files contain the unique (error-corrected, trimmed) reads ending in AA or TT, respectively, from the phase 3 of the 1000 Genomes Project.
+The input consists of several BWT files from the ReadServer project. Each of the files contains unique (error-corrected, trimmed) reads ending with the bases in the file name.
 
-|File         |     AA|     TT| Merged|
+|File         |     AA|     TT|     AT|
 |-------------|:-----:|:-----:|:-----:|
-|Size         |438 Gbp|436 Gbp|874 Gbp|
-|Sequences    |  4.69G|  4.67G|  9.37G|
-|SGA format   |39.9 GB|40.0 GB|      –|
-|SGA + index  |48.3 GB|48.4 GB|      –|
-|Native format|38.5 GB|38.7 GB|71.3 GB|
+|Size         |438 Gbp|436 Gbp|278 Gbp|
+|Sequences    |  4.69G|  4.67G|  2.98G|
+|SGA format   |39.9 GB|40.0 GB|26.9 GB|
+|SGA + index  |48.3 GB|48.4 GB|32.6 GB|
+|Native format|38.5 GB|38.7 GB|26.6 GB|
 
-Merging the BWTs took 14.8 hours (around 8 Mbp/s) and required 161 gigabytes of memory and 268 gigabytes of temporary disk space. The experiment was run on a system with two 16-core AMD Opteron 6378 processors and 256 gigabytes of memory.
+|Files          |     AA|   AA + TT|AA + TT + AT|
+|---------------|:-----:|:--------:|:----------:|
+|Size           |438 Gbp|   874 Gbp|    1.15 Tbp|
+|Sequences      |  4.69G|     9.37G|       12.3G|
+|Native format  |38.5 GB|   71.3 GB|     91.5 GB|
+|Time (merge)   |      –|    13.9 h|      10.6 h|
+|Speed (merge)  |      –|8.71 Mbp/s|  7.28 Mbp/s|
+|Memory (merge) |      –|    152 GB|      178 GB|
+|Disk (merge)   |      –|    268 GB|      220 GB|
+|Time (total)   |      –|    13.9 h|      24.6 h|
+|Speed (average)|      –|8.71 Mbp/s|  8.08 Mbp/s|
+|Memory (peak)  |      –|    152 GB|      178 GB|
+|Disk (peak)    |      –|    268 GB|      268 GB|
+
+The experiments were run on a system with two 16-core AMD Opteron 6378 processors and 256 gigabytes of memory. The measured times include all disk I/O and index verification.
 
 ## Background
 
