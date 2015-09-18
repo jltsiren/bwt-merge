@@ -137,20 +137,24 @@ struct MergeBuffer
   {
     if(buffer.empty()) { return; }
 
+    size_type buffer_values = buffer.values(), buffer_bytes = buffer.bytes();
+
     omp_set_lock(&(this->ra_lock));
     std::string filename = tempFile(TEMP_NAME);
     this->ra.filenames.push_back(filename);
     this->ra.run_counts.push_back(buffer.size());
     this->ra.value_counts.push_back(buffer.values());
-    this->ra_values += buffer.values();
-    this->ra_bytes += buffer.bytes() + sizeof(size_type);
+    omp_unset_lock(&(this->ra_lock));
+    buffer.write(filename); buffer.clear();
+
+    omp_set_lock(&(this->ra_lock));
+    this->ra_values += buffer_values;
+    this->ra_bytes += buffer_bytes + sizeof(size_type);
 #ifdef VERBOSE_STATUS_INFO
     double ra_done = (100.0 * this->ra_values) / this->size;
     double ra_gb = inGigabytes(this->ra_bytes);
 #endif
     omp_unset_lock(&(this->ra_lock));
-
-    buffer.write(filename); buffer.clear();
 #ifdef VERBOSE_STATUS_INFO
     #pragma omp critical
     {
