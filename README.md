@@ -18,29 +18,34 @@ There are two tools in the package:
 
 The input consists of several BWT files from the ReadServer project. Each of the files contains unique (error-corrected, trimmed) reads ending with the bases in the file name.
 
-|File         |     AA|     TT|     AT|
-|-------------|:-----:|:-----:|:-----:|
-|Size         |438 Gbp|436 Gbp|278 Gbp|
-|Sequences    |  4.69G|  4.67G|  2.98G|
-|SGA format   |39.9 GB|40.0 GB|26.9 GB|
-|SGA + index  |48.3 GB|48.4 GB|32.6 GB|
-|Native format|38.5 GB|38.7 GB|26.6 GB|
+|File         |     AA|     TT|     AT|     TA|
+|-------------|:-----:|:-----:|:-----:|:-----:|
+|Size         |438 Gbp|436 Gbp|278 Gbp|359 Gbp|
+|Sequences    |  4.69G|  4.67G|  2.98G|  3.84G|
+|SGA format   |39.9 GB|40.0 GB|26.9 GB|33.5 GB|
+|SGA + index  |48.3 GB|48.4 GB|32.6 GB|40.6 GB|
+|Native format|38.5 GB|38.7 GB|26.6 GB|32.7 GB|
 
-|Files          |     AA|   AA + TT|AA + TT + AT|
-|---------------|:-----:|:--------:|:----------:|
-|Size           |438 Gbp|   874 Gbp|    1.15 Tbp|
-|Sequences      |  4.69G|     9.37G|       12.3G|
-|Native format  |38.5 GB|   71.3 GB|     91.5 GB|
-|Time (merge)   |      –|    13.9 h|      10.6 h|
-|Speed (merge)  |      –|8.71 Mbp/s|  7.28 Mbp/s|
-|Memory (merge) |      –|    152 GB|      178 GB|
-|Disk (merge)   |      –|    268 GB|      220 GB|
-|Time (total)   |      –|    13.9 h|      24.6 h|
-|Speed (average)|      –|8.71 Mbp/s|  8.08 Mbp/s|
-|Memory (peak)  |      –|    152 GB|      178 GB|
-|Disk (peak)    |      –|    268 GB|      268 GB|
+|Files          |     AA|   AA + TT|AA + TT + AT|AA + TT + AT + TA|
+|---------------|:-----:|:--------:|:----------:|:---------------:|
+|Size           |438 Gbp|   874 Gbp|    1.15 Tbp|         1.51 Tbp|
+|Sequences      |  4.69G|     9.37G|       12.3G|            16.2G|
+|Native format  |38.5 GB|   71.3 GB|     91.5 GB|           117 GB|
+|Time (merge)   |      –|    13.9 h|      10.6 h|           13.8 h|
+|Speed (merge)  |      –|8.71 Mbp/s|  7.28 Mbp/s|       7.20 Mbp/s|
+|Memory (merge) |      –|    152 GB|      178 GB|           208 GB|
+|Disk (merge)   |      –|    268 GB|      220 GB|           289 GB|
+|Time (total)   |      –|    13.9 h|      24.6 h|           38.4 h|
+|Speed (average)|      –|8.71 Mbp/s|  8.08 Mbp/s|       7.77 Mbp/s|
+|Memory (peak)  |      –|    152 GB|      178 GB|           208 GB|
+|Disk (peak)    |      –|    268 GB|      268 GB|           289 GB|
 
-The experiments were run on a system with two 16-core AMD Opteron 6378 processors and 256 gigabytes of memory. The measured times include all disk I/O and index verification.
+The experiments were run on a system with two 16-core AMD Opteron 6378 processors and 256 gigabytes of memory. The measured times include disk I/O and index verification.
+
+Some observations:
+* Larger `input2` files increase merging speed, while larger `input1` files decrease it. (A larger `input2` file also means that there is more work to do.)
+* Memory usage depends on the size of the BWTs, the number of threads, the number of merge buffers, and the size of buffers.
+* Disk usage depends primarily on the size of `input2`, but also on the size of `input1`.
 
 ## Background
 
