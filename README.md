@@ -8,9 +8,11 @@ If the dataset is up to a few hundred gigabytes in size, it is probably more pra
 
 The implementation is based on the [Succinct Data Structures Library 2.0 (SDSL)](https://github.com/simongog/sdsl-lite). To compile, set `SDSL_DIR` in the Makefile to point to your SDSL directory. As the implementation uses C++11, OpenMP, and libstdc++ parallel mode, you need g++ 4.7 or newer to compile. Comment out the line `OUTPUT_FLAGS=-DVERBOSE_STATUS_INFO` if you do not want the merging tool to output status information to `stderr`.
 
-There are two tools in the package:
+There are three tools in the package:
 
 `bwt_convert input output` reads a run-length encoded BWT built by the [String Graph Assembler](https://github.com/jts/sga) from file `input` and writes it to file `output` in the native format of BWT-merge. The converted file is often a bit smaller than the input, even though it includes rank/select indexes.
+
+`bwt_inspect input1 [input2 ...]` tries to identify the BWT formats of the input files. If successful, it will also display some basic information about the files. Only the native format and the SGA format are currently supported.
 
 `bwt_merge input1 input2 output [patterns]` reads the native format BWT files `input1` and `input2`, merges them, and writes the merged BWT to file `output` in the native format. The sequences from `input2` are inserted into `input1`, so `input2` should usually be the smaller of the two. If the optional parameter `patterns` is present, the merging is verified by querying the BWTs by patterns read from file `patterns` (one pattern per line).
 
@@ -72,6 +74,20 @@ As this tool merges existing BWTs, it is (insert, static).
 
 There are also other algorithms for building the BWT for large read collections They are based on partitioning the suffixes, sorting each of the partitions separately, and building the BWT directly.
 
+## Version history
+
+### Current version
+
+* The native BWT format has a header.
+* `sga_inspect` renamed to `bwt_inspect`. Now it also identifies files in the native format.
+
+### Version 0.1
+
+* The first pre-release.
+* `sga_inspect` for inspecting BWT files in the SGA format.
+* `bwt_convert` for converting BWT files from the SGA format to the native format.
+* `bwt_merge` for merging BWT files in the native format.
+
 ## Future work
 
 * Input/output in any supported BWT format.
@@ -79,12 +95,11 @@ There are also other algorithms for building the BWT for large read collections 
   * after the sequences from `input1` (current behavior)
   * in reverse lexicographic order
   * by position in the reference
-* An option to remove duplicate sequences. 
+* An option to remove duplicate sequences.
 * Adjustable construction parameters:
   * number of threads and sequence blocks
   * size of thread-specific buffers
   * number of merge buffers
-* A useful header for the native file format.
 * Documentation in the wiki.
 
 ## References

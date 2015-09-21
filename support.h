@@ -71,6 +71,7 @@ public:
   size_type serialize(std::ostream& out, sdsl::structure_tree_node* v = nullptr, std::string name = "") const;
   void load(std::istream& in);
 
+  bool sorted() const;
   bool operator== (const Alphabet& another) const;
   bool operator!= (const Alphabet& another) const;
 

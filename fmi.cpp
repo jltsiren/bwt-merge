@@ -89,8 +89,16 @@ FMI::serialize(std::ostream& out, sdsl::structure_tree_node* s, std::string name
 {
   sdsl::structure_tree_node* child = sdsl::structure_tree::add_child(s, name, sdsl::util::class_name(*this));
   size_type written_bytes = 0;
+
+  NativeHeader header;
+  header.sequences = this->sequences();
+  header.bases = this->size();
+  header.setOrder(identifyAlphabet(this->alpha));
+  header.write(out); written_bytes += sizeof(NativeHeader);
+
   written_bytes += this->bwt.serialize(out, child, "bwt");
   written_bytes += this->alpha.serialize(out, child, "alpha");
+
   sdsl::structure_tree::add_size(child, written_bytes);
   return written_bytes;
 }
@@ -98,8 +106,43 @@ FMI::serialize(std::ostream& out, sdsl::structure_tree_node* s, std::string name
 void
 FMI::load(std::istream& in)
 {
+  NativeHeader header(in);
+  if(!(header.check()))
+  {
+    std::cerr << "FMI::load(): Invalid header!" << std::endl;
+    std::exit(EXIT_FAILURE);
+  }
+
   this->bwt.load(in);
   this->alpha.load(in);
+}
+
+template<>
+void
+FMI::serialize<NativeFormat>(const std::string& filename)
+{
+  std::ofstream out(filename.c_str(), std::ios_base::binary);
+  if(!out)
+  {
+    std::cerr << "FMI::serialize(): Cannot open output file " << filename << std::endl;
+    return;
+  }
+  this->serialize(out);
+  out.close();
+}
+
+template<>
+void
+FMI::load<NativeFormat>(const std::string& filename)
+{
+  std::ifstream in(filename.c_str(), std::ios_base::binary);
+  if(!in)
+  {
+    std::cerr << "FMI::load(): Cannot open input file " << filename << std::endl;
+    std::exit(EXIT_FAILURE);
+  }
+  this->load(in);
+  in.close();
 }
 
 //------------------------------------------------------------------------------

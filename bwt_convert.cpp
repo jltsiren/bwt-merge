@@ -23,7 +23,6 @@
 */
 
 #include "fmi.h"
-#include "formats.h"
 
 using namespace bwtmerge;
 
@@ -56,7 +55,7 @@ main(int argc, char** argv)
 
   printSize("FMI", sdsl::size_in_bytes(fmi), fmi.size());
   std::cout << std::endl;
-  sdsl::store_to_file(fmi, output);
+  fmi.serialize<NativeFormat>(output);
 
   std::cout << "Memory usage: " << inGigabytes(memoryUsage()) << " GB" << std::endl;
   std::cout << std::endl;

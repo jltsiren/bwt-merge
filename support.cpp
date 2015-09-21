@@ -179,6 +179,16 @@ Alphabet::load(std::istream& in)
 }
 
 bool
+Alphabet::sorted() const
+{
+  for(size_type i = 1; i < this->sigma; i++)
+  {
+    if(this->comp2char[i - 1] >= this->comp2char[i]) { return false; }
+  }
+  return true;
+}
+
+bool
 Alphabet::operator== (const Alphabet& another) const
 {
   if(this->sigma != another.sigma) { return false; }

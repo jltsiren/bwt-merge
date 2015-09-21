@@ -25,7 +25,6 @@
 #include <stack>
 
 #include "fmi.h"
-#include "formats.h"
 
 using namespace bwtmerge;
 
@@ -77,12 +76,12 @@ main(int argc, char** argv)
 
   FMI index;
   std::vector<size_type> index_results;
-  sdsl::load_from_file(index, index_name);
+  index.load<NativeFormat>(index_name);
   verifyFMI(index, "BWT 1", patterns, index_results);
 
   FMI increment;
   std::vector<size_type> increment_results;
-  sdsl::load_from_file(increment, increment_name);
+  increment.load<NativeFormat>(increment_name);
   verifyFMI(increment, "BWT 2", patterns, increment_results);
 
 #ifdef VERBOSE_STATUS_INFO
@@ -92,7 +91,7 @@ main(int argc, char** argv)
   FMI merged;
   std::vector<size_type> merged_results;
   merge(merged, index, increment);
-  sdsl::store_to_file(merged, output_name);
+  merged.serialize<NativeFormat>(output_name);
   verifyFMI(merged, "Merged", patterns, merged_results);
 
   if(verify)

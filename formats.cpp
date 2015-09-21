@@ -45,12 +45,70 @@ createAlphabet(AlphabeticOrder order)
     std::swap(alpha.char2comp['N'], alpha.char2comp['T']);
     std::swap(alpha.char2comp['n'], alpha.char2comp['t']);
     break;
+  default:
+    break;
   }
 
   return alpha;
 }
 
+AlphabeticOrder
+identifyAlphabet(const Alphabet& alpha)
+{
+  if(alpha.sorted()) { return AO_SORTED; }
+
+  Alphabet default_alpha;
+  if(alpha == default_alpha) { return AO_DEFAULT; }
+
+  return AO_UNKNOWN;
+}
+
+std::string
+alphabetName(AlphabeticOrder order)
+{
+  switch(order)
+  {
+  case AO_DEFAULT:
+    return "default";
+  case AO_SORTED:
+    return "sorted";
+  case AO_ANY:
+    return "any";
+  case AO_UNKNOWN:
+  default:
+    return "unknown";
+  }
+}
+
+bool
+compatible(const Alphabet& alpha, AlphabeticOrder order)
+{
+  Alphabet default_alpha;
+  switch(order)
+  {
+  case AO_DEFAULT:
+    return (alpha == default_alpha);
+  case AO_SORTED:
+    return alpha.sorted();
+  case AO_ANY:
+    return true;
+  case AO_UNKNOWN:
+  default:
+    return false;
+  }
+}
+
 //------------------------------------------------------------------------------
+
+const std::string NativeFormat::name = "Native";
+
+//------------------------------------------------------------------------------
+
+template<>
+const std::string PlainFormat<AO_DEFAULT>::name = "Plain (default)";
+
+template<>
+const std::string PlainFormat<AO_SORTED>::name = "Plain (sorted)";
 
 struct PlainData
 {
@@ -102,7 +160,7 @@ writePlain(std::ostream& out, const BlockArray& data, const Alphabet& alpha)
         out.write((char*)(buffer.data()), buffer.size());
         buffer_pos = 0;
       }
-      size_type length = std::min(buffer.size() - buffer_pos, run.second);
+      size_type length = std::min(buffer.size() - buffer_pos, run.second); run.second -= length;
       for(size_type i = 0; i < length; i++, buffer_pos++) { buffer[buffer_pos] = run.first; }
     }
   }
@@ -189,7 +247,7 @@ SDSLData::write(std::ostream& out, const BlockArray& data, const Alphabet& alpha
         out.write((char*)(buffer.data()), buffer.size());
         buffer_pos = 0;
       }
-      size_type length = std::min(buffer.size() - buffer_pos, run.second);
+      size_type length = std::min(buffer.size() - buffer_pos, run.second); run.second -= length;
       for(size_type i = 0; i < length; i++, buffer_pos++) { buffer[buffer_pos] = run.first; }
     }
   }
@@ -201,6 +259,8 @@ SDSLData::write(std::ostream& out, const BlockArray& data, const Alphabet& alpha
 }
 
 //------------------------------------------------------------------------------
+
+const std::string RFMFormat::name = "RFM";
 
 void
 RFMFormat::read(std::istream& in, BlockArray& data, sdsl::int_vector<64>& counts)
@@ -216,6 +276,8 @@ RFMFormat::write(std::ostream& out, const BlockArray& data)
 
 //------------------------------------------------------------------------------
 
+const std::string SDSLFormat::name = "SDSL";
+
 void
 SDSLFormat::read(std::istream& in, BlockArray& data, sdsl::int_vector<64>& counts)
 {
@@ -229,6 +291,8 @@ SDSLFormat::write(std::ostream& out, const BlockArray& data)
 }
 
 //------------------------------------------------------------------------------
+
+const std::string SGAFormat::name = "SGA";
 
 struct SGAData
 {
@@ -255,8 +319,8 @@ SGAFormat::read(std::istream& in, BlockArray& data, sdsl::int_vector<64>& counts
   SGAHeader header(in);
   if(!(header.check()))
   {
-    std::cerr << "SGAFormat::load(): Invalid header" << std::endl;
-    return;
+    std::cerr << "SGAFormat::load(): Invalid header!" << std::endl;
+    std::exit(EXIT_FAILURE);
   }
 
   SGAData::code_type buffer[MEGABYTE];
@@ -287,7 +351,7 @@ SGAFormat::write(std::ostream& out, const BlockArray& data)
   while(rle_pos < data.size())
   {
     range_type run = Run::read(data, rle_pos);
-    if(run.first == 0) { header.reads += run.second; }
+    if(run.first == 0) { header.sequences += run.second; }
     header.bases += run.second;
     header.runs += (run.second + SGAData::MAX_RUN - 1) / SGAData::MAX_RUN;
   }
@@ -315,39 +379,89 @@ SGAFormat::write(std::ostream& out, const BlockArray& data)
 
 //------------------------------------------------------------------------------
 
+NativeHeader::NativeHeader() :
+  tag(DEFAULT_TAG), flags(0), sequences(0), bases(0)
+{
+}
+
+NativeHeader::NativeHeader(std::istream& in)
+{
+  sdsl::read_member(this->tag, in);
+  sdsl::read_member(this->flags, in);
+  sdsl::read_member(this->sequences, in);
+  sdsl::read_member(this->bases, in);
+}
+
+void
+NativeHeader::write(std::ostream& out) const
+{
+  sdsl::write_member(this->tag, out);
+  sdsl::write_member(this->flags, out);
+  sdsl::write_member(this->sequences, out);
+  sdsl::write_member(this->bases, out);
+}
+
+bool
+NativeHeader::check() const
+{
+  return (this->tag == DEFAULT_TAG);
+}
+
+AlphabeticOrder
+NativeHeader::order() const
+{
+  return static_cast<AlphabeticOrder>((this->flags) & ALPHABET_MASK);
+}
+
+void
+NativeHeader::setOrder(AlphabeticOrder ao)
+{
+  this->flags &= ~ALPHABET_MASK;
+  this->flags |= static_cast<uint32_t>(ao) & ALPHABET_MASK;
+}
+
+std::ostream& operator<<(std::ostream& stream, const NativeHeader& header)
+{
+  return stream << "Native format: " << header.sequences << " sequences, " << header.bases << " bases, "
+                << alphabetName(header.order()) << " alphabet";
+}
+
+//------------------------------------------------------------------------------
+
+SGAHeader::SGAHeader() :
+  tag(DEFAULT_TAG), sequences(0), bases(0), runs(0), flag(DEFAULT_FLAG)
+{
+}
+
 SGAHeader::SGAHeader(std::istream& in)
 {
   sdsl::read_member(this->tag, in);
-  sdsl::read_member(this->reads, in);
+  sdsl::read_member(this->sequences, in);
   sdsl::read_member(this->bases, in);
   sdsl::read_member(this->runs, in);
   sdsl::read_member(this->flag, in);
 }
 
-SGAHeader::SGAHeader() :
-  tag(DEFAULT_TAG), reads(0), bases(0), runs(0), flag(DEFAULT_FLAG)
-{
-}
-
 void
-SGAHeader::write(std::ostream& out)
+SGAHeader::write(std::ostream& out) const
 {
   sdsl::write_member(this->tag, out);
-  sdsl::write_member(this->reads, out);
+  sdsl::write_member(this->sequences, out);
   sdsl::write_member(this->bases, out);
   sdsl::write_member(this->runs, out);
   sdsl::write_member(this->flag, out);
 }
 
 bool
-SGAHeader::check()
+SGAHeader::check() const
 {
   return (this->tag == DEFAULT_TAG && this->flag == DEFAULT_FLAG);
 }
 
 std::ostream& operator<<(std::ostream& stream, const SGAHeader& header)
 {
-  return stream << header.reads << " reads, " << header.bases << " bases, " << header.runs << " runs";
+  return stream << "SGA format: " << header.sequences << " sequences, "
+                << header.bases << " bases, " << header.runs << " runs";
 }
 
 //------------------------------------------------------------------------------

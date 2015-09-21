@@ -71,13 +71,26 @@ public:
 //------------------------------------------------------------------------------
 
   template<class Format>
+  void serialize(const std::string& filename)
+  {
+    std::ofstream out(filename.c_str(), std::ios_base::binary);
+    if(!out)
+    {
+      std::cerr << "BWT::serialize(): Cannot open output file " << filename << std::endl;
+      return;
+    }
+    Format::write(out, this->data);
+    out.close();
+  }
+
+  template<class Format>
   void load(const std::string& filename, sdsl::int_vector<64>& counts)
   {
     std::ifstream in(filename.c_str(), std::ios_base::binary);
     if(!in)
     {
       std::cerr << "BWT::load(): Cannot open input file " << filename << std::endl;
-      return;
+      std::exit(EXIT_FAILURE);
     }
     Format::read(in, this->data, counts);
     in.close();

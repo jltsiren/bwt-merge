@@ -28,39 +28,64 @@ using namespace bwtmerge;
 
 //------------------------------------------------------------------------------
 
+template<class HeaderFormat>
+bool inspect(std::ifstream& in, size_type& total_sequences, size_type& total_bases);
+
+//------------------------------------------------------------------------------
+
 int
 main(int argc, char** argv)
 {
   if(argc < 2)
   {
-    std::cerr << "Usage: sga_inspect input1 [input2 ...]" << std::endl;
+    std::cerr << "Usage: bwt_inspect input1 [input2 ...]" << std::endl;
     std::cerr << std::endl;
     std::exit(EXIT_SUCCESS);
   }
 
-  std::cout << "Inspecting BWT files in SGA format" << std::endl;
+  std::cout << "Inspecting BWT files" << std::endl;
   std::cout << std::endl;
 
-  SGAHeader total;
+  size_type total_sequences = 0, total_bases = 0;
   for(int arg = 1; arg < argc; arg++)
   {
+    std::cout << argv[arg] << ": "; std::cout.flush();
+
     std::ifstream in(argv[arg], std::ios_base::binary);
     if(!in)
     {
-      std::cerr << "sga_inspect: Cannot open input file " << argv[arg] << std::endl;
+      std::cerr << "bwt_inspect: Cannot open input file " << argv[arg] << std::endl;
       continue;
     }
-    SGAHeader header(in); in.close();
 
-    total.reads += header.reads; total.bases += header.bases; total.runs += header.runs;
-    std::cout << argv[arg] << ": " << header << std::endl;
+    if(inspect<NativeHeader>(in, total_sequences, total_bases)) { continue; }
+    if(inspect<SGAHeader>(in, total_sequences, total_bases)) { continue; }
+
+    in.close();
+    std::cout << "Unknown format" << std::endl;
   }
   std::cout << std::endl;
 
-  std::cout << "Total: " << total << std::endl;
+  std::cout << "Total: " << total_sequences << " sequences, " << total_bases << " bases" << std::endl;
   std::cout << std::endl;
 
   return 0;
+}
+
+//------------------------------------------------------------------------------
+
+template<class HeaderFormat>
+bool
+inspect(std::ifstream& in, size_type& total_sequences, size_type& total_bases)
+{
+  in.seekg(0);
+  HeaderFormat header(in);
+  if(!(header.check())) { return false; }
+
+  total_sequences += header.sequences; total_bases += header.bases;
+  in.close();
+  std::cout << header << std::endl;
+  return true;
 }
 
 //------------------------------------------------------------------------------

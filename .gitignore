@@ -2,8 +2,8 @@
 *.a
 
 bwt_convert
+bwt_inspect
 bwt_merge
-sga_inspect
 
 .DS_Store
 

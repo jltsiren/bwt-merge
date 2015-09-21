@@ -21,7 +21,7 @@ HEADERS=$(wildcard *.h)
 OBJS=$(SOURCES:.cpp=.o)
 LIBS=-L$(LIB_DIR) -lsdsl -ldivsufsort -ldivsufsort64
 LIBRARY=libbwtmerge.a
-PROGRAMS=bwt_convert bwt_merge sga_inspect
+PROGRAMS=bwt_convert bwt_inspect bwt_merge
 
 all: $(LIBRARY) $(PROGRAMS)
 
@@ -34,10 +34,10 @@ $(LIBRARY):$(LIBOBJS)
 bwt_convert:bwt_convert.o $(LIBRARY)
 	$(MY_CXX) $(CXX_FLAGS) -o $@ $< $(LIBRARY) $(LIBS)
 
-bwt_merge:bwt_merge.o $(LIBRARY)
+bwt_inspect:bwt_inspect.o $(LIBRARY)
 	$(MY_CXX) $(CXX_FLAGS) -o $@ $< $(LIBRARY) $(LIBS)
 
-sga_inspect:sga_inspect.o $(LIBRARY)
+bwt_merge:bwt_merge.o $(LIBRARY)
 	$(MY_CXX) $(CXX_FLAGS) -o $@ $< $(LIBRARY) $(LIBS)
 
 clean:

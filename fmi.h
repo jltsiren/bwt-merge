@@ -29,6 +29,7 @@
 #include <iostream>
 
 #include "bwt.h"
+#include "formats.h"
 
 namespace bwtmerge
 {
@@ -64,6 +65,18 @@ public:
   FMI(FMI& a, FMI& b);
 
 //------------------------------------------------------------------------------
+
+  template<class Format>
+  void serialize(const std::string& filename)
+  {
+    if(!compatible(this->alpha, Format::order()))
+    {
+      std::cerr << "FMI::serialize(): Warning: " << Format::name
+                << " format is not compatible with " << alphabetName(identifyAlphabet(this->alpha))
+                << " alphabets!" << std::endl;
+    }
+    this->bwt.serialize<Format>(filename);
+  }
 
   template<class Format>
   void load(const std::string& filename)
@@ -136,6 +149,16 @@ public:
 private:
   void copy(const FMI& source);
 };
+
+//------------------------------------------------------------------------------
+
+template<>
+void
+FMI::serialize<NativeFormat>(const std::string& filename);
+
+template<>
+void
+FMI::load<NativeFormat>(const std::string& filename);
 
 //------------------------------------------------------------------------------
 

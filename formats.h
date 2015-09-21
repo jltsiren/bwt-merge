@@ -32,9 +32,13 @@ namespace bwtmerge
 
 //------------------------------------------------------------------------------
 
-enum AlphabeticOrder { AO_DEFAULT, AO_SORTED };
+enum AlphabeticOrder { AO_DEFAULT = 0, AO_SORTED = 1, AO_ANY = 254, AO_UNKNOWN = 255 };
 
 Alphabet createAlphabet(AlphabeticOrder order);
+AlphabeticOrder identifyAlphabet(const Alphabet& alpha);
+std::string alphabetName(AlphabeticOrder order);
+bool compatible(const Alphabet& alpha, AlphabeticOrder order);
+
 void readPlain(std::istream& in, BlockArray& data, sdsl::int_vector<64>& counts, const Alphabet& alpha);
 void writePlain(std::ostream& out, const BlockArray& data, const Alphabet& alpha);
 
@@ -47,12 +51,21 @@ void writePlain(std::ostream& out, const BlockArray& data, const Alphabet& alpha
     load()      reads the BWT from 'in' and stores it in the native format in 'data'
     write()     writes the BWT stored in the native format in 'data' to 'out'
     order()     returns the alphabetic order
+    name        name of the format
 
-    PlainFormat - BWT as a character array; any alphabetic order
-    RFMFormat   - BWT as int_vector<8> of comp values; AO_SORTED
-    SDSLFormat  - BWT as int_vector<8> of characters; AO_SORTED
-    SGAFormat   - SGA assembler; AO_DEFAULT
+    NativeFormat - Native BWT format; any alphabetic order
+    PlainFormat  - BWT as a character array; any alphabetic order
+    RFMFormat    - BWT as int_vector<8> of comp values; AO_SORTED
+    SDSLFormat   - BWT as int_vector<8> of characters; AO_SORTED
+    SGAFormat    - SGA assembler; AO_DEFAULT
 */
+
+struct NativeFormat
+{
+  inline static AlphabeticOrder order() { return AO_ANY; }
+
+  const static std::string name;
+};
 
 template<AlphabeticOrder ao>
 struct PlainFormat
@@ -68,13 +81,23 @@ struct PlainFormat
   }
 
   inline static AlphabeticOrder order() { return ao; }
+
+  const static std::string name;
 };
+
+template<>
+const std::string PlainFormat<AO_DEFAULT>::name;
+
+template<>
+const std::string PlainFormat<AO_SORTED>::name;
 
 struct RFMFormat
 {
   static void read(std::istream& in, BlockArray& data, sdsl::int_vector<64>& counts);
   static void write(std::ostream& out, const BlockArray& data);
   inline static AlphabeticOrder order() { return AO_SORTED; }
+
+  const static std::string name;
 };
 
 struct SDSLFormat
@@ -82,6 +105,8 @@ struct SDSLFormat
   static void read(std::istream& in, BlockArray& data, sdsl::int_vector<64>& counts);
   static void write(std::ostream& out, const BlockArray& data);
   inline static AlphabeticOrder order() { return AO_SORTED; }
+
+  const static std::string name;
 };
 
 struct SGAFormat
@@ -89,14 +114,38 @@ struct SGAFormat
   static void read(std::istream& in, BlockArray& data, sdsl::int_vector<64>& counts);
   static void write(std::ostream& out, const BlockArray& data);
   inline static AlphabeticOrder order() { return AO_DEFAULT; }
+
+  const static std::string name;
 };
 
 //------------------------------------------------------------------------------
 
+struct NativeHeader
+{
+  uint32_t tag;
+  uint32_t flags;
+  uint64_t sequences;
+  uint64_t bases;
+
+  const static uint32_t DEFAULT_TAG = 0x54574221;
+  const static uint32_t ALPHABET_MASK = 0xFF;
+
+  NativeHeader();
+  NativeHeader(std::istream& in);
+
+  void write(std::ostream& out) const;
+  bool check() const;
+
+  AlphabeticOrder order() const;
+  void setOrder(AlphabeticOrder ao);
+};
+
+std::ostream& operator<<(std::ostream& stream, const NativeHeader& header);
+
 struct SGAHeader
 {
   uint16_t tag;
-  uint64_t reads;
+  uint64_t sequences;
   uint64_t bases;
   uint64_t runs;
   uint32_t flag;
@@ -104,11 +153,11 @@ struct SGAHeader
   const static uint16_t DEFAULT_TAG = 0xCACA;
   const static uint32_t DEFAULT_FLAG = 0;
 
-  SGAHeader(std::istream& in);
   SGAHeader();
+  SGAHeader(std::istream& in);
 
-  void write(std::ostream& out);
-  bool check();
+  void write(std::ostream& out) const;
+  bool check() const;
 };
 
 std::ostream& operator<<(std::ostream& stream, const SGAHeader& header);
