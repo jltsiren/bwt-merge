@@ -119,7 +119,7 @@ FMI::load(std::istream& in)
 
 template<>
 void
-FMI::serialize<NativeFormat>(const std::string& filename)
+FMI::serialize<NativeFormat>(const std::string& filename) const
 {
   std::ofstream out(filename.c_str(), std::ios_base::binary);
   if(!out)
@@ -359,6 +359,76 @@ FMI::FMI(FMI& a, FMI& b)
   this->bwt = BWT(a.bwt, b.bwt, mb.ra);
   this->alpha = a.alpha;
   for(size_type c = 0; c <= this->alpha.sigma; c++) { this->alpha.C[c] += b.alpha.C[c]; }
+}
+
+//------------------------------------------------------------------------------
+
+void
+serialize(const FMI& fmi, const std::string& filename, const std::string& format)
+{
+  if(format == NativeFormat::tag)
+  {
+    fmi.serialize<NativeFormat>(filename);
+  }
+  else if(format == PlainFormat<AO_DEFAULT>::tag)
+  {
+    fmi.serialize<PlainFormat<AO_DEFAULT>>(filename);
+  }
+  else if(format == PlainFormat<AO_SORTED>::tag)
+  {
+    fmi.serialize<PlainFormat<AO_SORTED>>(filename);
+  }
+  else if(format == RFMFormat::tag)
+  {
+    fmi.serialize<RFMFormat>(filename);
+  }
+  else if(format == SDSLFormat::tag)
+  {
+    fmi.serialize<SDSLFormat>(filename);
+  }
+  else if(format == SGAFormat::tag)
+  {
+    fmi.serialize<SGAFormat>(filename);
+  }
+  else
+  {
+    std::cerr << "serialize(): Invalid BWT format: " << format << std::endl;
+    std::exit(EXIT_FAILURE);
+  }
+}
+
+void
+load(FMI& fmi, const std::string& filename, const std::string& format)
+{
+  if(format == NativeFormat::tag)
+  {
+    fmi.load<NativeFormat>(filename);
+  }
+  else if(format == PlainFormat<AO_DEFAULT>::tag)
+  {
+    fmi.load<PlainFormat<AO_DEFAULT>>(filename);
+  }
+  else if(format == PlainFormat<AO_SORTED>::tag)
+  {
+    fmi.load<PlainFormat<AO_SORTED>>(filename);
+  }
+  else if(format == RFMFormat::tag)
+  {
+    fmi.load<RFMFormat>(filename);
+  }
+  else if(format == SDSLFormat::tag)
+  {
+    fmi.load<SDSLFormat>(filename);
+  }
+  else if(format == SGAFormat::tag)
+  {
+    fmi.load<SGAFormat>(filename);
+  }
+  else
+  {
+    std::cerr << "load(): Invalid BWT format: " << format << std::endl;
+    std::exit(EXIT_FAILURE);
+  }
 }
 
 //------------------------------------------------------------------------------

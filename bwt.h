@@ -71,7 +71,7 @@ public:
 //------------------------------------------------------------------------------
 
   template<class Format>
-  void serialize(const std::string& filename)
+  void serialize(const std::string& filename) const
   {
     std::ofstream out(filename.c_str(), std::ios_base::binary);
     if(!out)

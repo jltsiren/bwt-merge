@@ -36,6 +36,13 @@ namespace bwtmerge
 
 //------------------------------------------------------------------------------
 
+class FMI;
+
+void serialize(const FMI& fmi, const std::string& filename, const std::string& format);
+void load(FMI& fmi, const std::string& filename, const std::string& format);
+
+//------------------------------------------------------------------------------
+
 class FMI
 {
 public:
@@ -67,12 +74,12 @@ public:
 //------------------------------------------------------------------------------
 
   template<class Format>
-  void serialize(const std::string& filename)
+  void serialize(const std::string& filename) const
   {
     if(!compatible(this->alpha, Format::order()))
     {
       std::cerr << "FMI::serialize(): Warning: " << Format::name
-                << " format is not compatible with " << alphabetName(identifyAlphabet(this->alpha))
+                << " is not compatible with " << alphabetName(identifyAlphabet(this->alpha))
                 << " alphabets!" << std::endl;
     }
     this->bwt.serialize<Format>(filename);
@@ -154,7 +161,7 @@ private:
 
 template<>
 void
-FMI::serialize<NativeFormat>(const std::string& filename);
+FMI::serialize<NativeFormat>(const std::string& filename) const;
 
 template<>
 void

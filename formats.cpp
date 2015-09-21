@@ -100,15 +100,15 @@ compatible(const Alphabet& alpha, AlphabeticOrder order)
 
 //------------------------------------------------------------------------------
 
-const std::string NativeFormat::name = "Native";
+const std::string NativeFormat::name = "Native format";
+const std::string NativeFormat::tag = "native";
 
 //------------------------------------------------------------------------------
 
-template<>
-const std::string PlainFormat<AO_DEFAULT>::name = "Plain (default)";
-
-template<>
-const std::string PlainFormat<AO_SORTED>::name = "Plain (sorted)";
+template<> const std::string PlainFormat<AO_DEFAULT>::name = "Plain format (default)";
+template<> const std::string PlainFormat<AO_SORTED>::name = "Plain format (sorted)";
+template<> const std::string PlainFormat<AO_DEFAULT>::tag = "plain_default";
+template<> const std::string PlainFormat<AO_SORTED>::tag = "plain_sorted";
 
 struct PlainData
 {
@@ -260,7 +260,8 @@ SDSLData::write(std::ostream& out, const BlockArray& data, const Alphabet& alpha
 
 //------------------------------------------------------------------------------
 
-const std::string RFMFormat::name = "RFM";
+const std::string RFMFormat::name = "RFM format";
+const std::string RFMFormat::tag = "rfm";
 
 void
 RFMFormat::read(std::istream& in, BlockArray& data, sdsl::int_vector<64>& counts)
@@ -276,7 +277,8 @@ RFMFormat::write(std::ostream& out, const BlockArray& data)
 
 //------------------------------------------------------------------------------
 
-const std::string SDSLFormat::name = "SDSL";
+const std::string SDSLFormat::name = "SDSL format";
+const std::string SDSLFormat::tag = "sdsl";
 
 void
 SDSLFormat::read(std::istream& in, BlockArray& data, sdsl::int_vector<64>& counts)
@@ -292,7 +294,8 @@ SDSLFormat::write(std::ostream& out, const BlockArray& data)
 
 //------------------------------------------------------------------------------
 
-const std::string SGAFormat::name = "SGA";
+const std::string SGAFormat::name = "SGA format";
+const std::string SGAFormat::tag = "sga";
 
 struct SGAData
 {

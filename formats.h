@@ -48,16 +48,18 @@ void writePlain(std::ostream& out, const BlockArray& data, const Alphabet& alpha
   BWT file formats. Note that BWT formats are only compatible with those having the
   same alphabetic order.
 
-    load()      reads the BWT from 'in' and stores it in the native format in 'data'
-    write()     writes the BWT stored in the native format in 'data' to 'out'
-    order()     returns the alphabetic order
-    name        name of the format
+  load()        reads the BWT from 'in' and stores it in the native format in 'data'
+  write()       writes the BWT stored in the native format in 'data' to 'out'
+  order()       returns the alphabetic order
 
-    NativeFormat - Native BWT format; any alphabetic order
-    PlainFormat  - BWT as a character array; any alphabetic order
-    RFMFormat    - BWT as int_vector<8> of comp values; AO_SORTED
-    SDSLFormat   - BWT as int_vector<8> of characters; AO_SORTED
-    SGAFormat    - SGA assembler; AO_DEFAULT
+  name          meaningful name of the format
+  tag           the name used for specifying the format
+
+  NativeFormat  Native BWT format; any alphabetic order
+  PlainFormat   BWT as a character array; any alphabetic order
+  RFMFormat     BWT as int_vector<8> of comp values; AO_SORTED
+  SDSLFormat    BWT as int_vector<8> of characters; AO_SORTED
+  SGAFormat     SGA assembler; AO_DEFAULT
 */
 
 struct NativeFormat
@@ -65,6 +67,7 @@ struct NativeFormat
   inline static AlphabeticOrder order() { return AO_ANY; }
 
   const static std::string name;
+  const static std::string tag;
 };
 
 template<AlphabeticOrder ao>
@@ -83,13 +86,13 @@ struct PlainFormat
   inline static AlphabeticOrder order() { return ao; }
 
   const static std::string name;
+  const static std::string tag;
 };
 
-template<>
-const std::string PlainFormat<AO_DEFAULT>::name;
-
-template<>
-const std::string PlainFormat<AO_SORTED>::name;
+template<> const std::string PlainFormat<AO_DEFAULT>::name;
+template<> const std::string PlainFormat<AO_SORTED>::name;
+template<> const std::string PlainFormat<AO_DEFAULT>::tag;
+template<> const std::string PlainFormat<AO_SORTED>::tag;
 
 struct RFMFormat
 {
@@ -98,6 +101,7 @@ struct RFMFormat
   inline static AlphabeticOrder order() { return AO_SORTED; }
 
   const static std::string name;
+  const static std::string tag;
 };
 
 struct SDSLFormat
@@ -107,6 +111,7 @@ struct SDSLFormat
   inline static AlphabeticOrder order() { return AO_SORTED; }
 
   const static std::string name;
+  const static std::string tag;
 };
 
 struct SGAFormat
@@ -116,6 +121,7 @@ struct SGAFormat
   inline static AlphabeticOrder order() { return AO_DEFAULT; }
 
   const static std::string name;
+  const static std::string tag;
 };
 
 //------------------------------------------------------------------------------
