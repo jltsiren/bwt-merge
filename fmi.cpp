@@ -276,6 +276,7 @@ struct MergePosition
   MergePosition() : a_pos(0), b_range(0, 0) {}
   MergePosition(size_type a, size_type b) : a_pos(a), b_range(b, b) {}
   MergePosition(size_type pos, range_type range) : a_pos(pos), b_range(range) {}
+  MergePosition(size_type pos, size_type sp, size_type ep) : a_pos(pos), b_range(sp, ep) {}
 };
 
 void
@@ -286,6 +287,7 @@ buildRA(const FMI& a, const FMI& b, MergeBuffer& mb, range_type sequence_range)
   MergeBuffer::buffer_type thread_buffer;
   std::vector<MergeBuffer::run_type> buffer;
   std::stack<MergePosition> positions;
+  BWT::ranks_type a_pos, b_sp, b_ep;
 
   positions.push(MergePosition(a.sequences(), sequence_range));
   while(!(positions.empty()))
@@ -294,7 +296,7 @@ buildRA(const FMI& a, const FMI& b, MergeBuffer& mb, range_type sequence_range)
     buffer.push_back(MergeBuffer::run_type(curr.a_pos, Range::length(curr.b_range)));
     if(buffer.size() >= FMI::RUN_BUFFER_SIZE) { mergeRA(mb, thread_buffer, buffer, false); }
 
-    if(Range::length(curr.b_range) < b.alpha.sigma)
+    if(Range::length(curr.b_range) <= FMI::SHORT_RANGE)
     {
       for(size_type i = curr.b_range.first; i <= curr.b_range.second; i++)
       {
@@ -307,10 +309,10 @@ buildRA(const FMI& a, const FMI& b, MergeBuffer& mb, range_type sequence_range)
     }
     else
     {
+      a.LF(curr.a_pos, a_pos); b.LF(curr.b_range, b_sp, b_ep);
       for(comp_type c = 1; c < b.alpha.sigma; c++)
       {
-        range_type prev = b.LF(curr.b_range, c);
-        if(!(Range::empty(prev))) { positions.push(MergePosition(a.LF(curr.a_pos, c), prev)); }
+        if(b_sp[c] <= b_ep[c]) { positions.push(MergePosition(a_pos[c], b_sp[c], b_ep[c])); }
       }
     }
   }

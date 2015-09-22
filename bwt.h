@@ -48,6 +48,8 @@ public:
   const static size_type SAMPLE_RATE = Run::BLOCK_SIZE;
   const static size_type SIGMA       = Run::SIGMA;
 
+  typedef std::array<size_type, SIGMA> ranks_type;
+
   BWT();
   BWT(const BWT& source);
   BWT(BWT&& source);
@@ -125,6 +127,28 @@ public:
     }
 
     return res;
+  }
+
+  /*
+    Computes rank(i) for comp values 1 to SIGMA - 1.
+  */
+  inline void ranks(size_type i, ranks_type& results) const
+  {
+    if(i > this->size()) { i = this->size(); }
+
+    size_type block = this->block_rank(i);
+    for(size_type c = 1; c < SIGMA; c++) { results[c] = this->samples[c].sum(block); }
+    size_type rle_pos = block * SAMPLE_RATE;
+    size_type seq_pos = (block > 0 ? this->block_select(block) + 1 : 0);
+
+    size_type prev = 0;
+    while(seq_pos < i)
+    {
+      range_type run = Run::read(this->data, rle_pos);
+      seq_pos += run.second;  // The starting position of the next run.
+      results[run.first] += run.second; prev = run.first;
+    }
+    results[prev] -= seq_pos - i;
   }
 
   inline size_type select(size_type i, comp_type c) const

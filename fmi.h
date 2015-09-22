@@ -48,6 +48,8 @@ class FMI
 public:
   typedef BWT::size_type size_type;
 
+  const static size_type SHORT_RANGE = 3; // Compute LF(i) individually for ranges up to this length.
+
   FMI();
   FMI(const FMI& source);
   FMI(FMI&& source);
@@ -118,6 +120,27 @@ public:
   inline range_type LF(range_type range, comp_type comp) const
   {
     return bwtmerge::LF(this->bwt, this->alpha, range, comp);
+  }
+
+  /*
+    Computes LF(i) for comp values 1 to sigma - 1.
+  */
+  inline void LF(size_type i, BWT::ranks_type& results) const
+  {
+    this->bwt.ranks(i, results);
+    for(size_type c = 1; c < this->alpha.sigma; c++) { results[c] += this->alpha.C[c]; }
+  }
+
+  /*
+    Computes LF(range) for comp values 1 to sigma - 1.
+  */
+  inline void LF(range_type range, BWT::ranks_type& sp, BWT::ranks_type& ep) const
+  {
+    this->bwt.ranks(range.first, sp); this->bwt.ranks(range.second + 1, ep);
+    for(size_type c = 1; c < this->alpha.sigma; c++)
+    {
+      sp[c] += this->alpha.C[c]; ep[c] += this->alpha.C[c] - 1;
+    }
   }
 
   template<class Iterator>
