@@ -42,12 +42,12 @@ The input consists of several BWT files from the ReadServer project. Each of the
 |Memory (peak)  |      –|    152 GB|      178 GB|           208 GB|
 |Disk (peak)    |      –|    268 GB|      268 GB|           289 GB|
 
-The experiments were run on a system with two 16-core AMD Opteron 6378 processors and 256 gigabytes of memory. The measured times include disk I/O and index verification.
+The experiments were run on a system with two 16-core AMD Opteron 6378 processors and 256 gigabytes of memory. The parameters were 32 **threads**, 128 **sequence blocks**, 128-megabyte **run buffers**, 512-megabyte **thread buffers**, and 5 **merge buffers**. The measured times include disk I/O and index verification.
 
 Some observations:
 * Larger `input2` files increase merging speed, while larger `input1` files decrease it. (A larger `input2` file also means that there is more work to do.)
-* Memory usage depends on the size of the BWTs, the number of threads, the number of merge buffers, and the size of buffers.
-* Disk usage depends primarily on the size of `input2`, but also on the size of `input1`.
+* Memory usage is nondeterministic. The peak seems to be around **2.5 GB/thread** in addition to the input BWTs.
+* Disk usage depends primarily on the size of `input2`, but also on the size of `input1`. A good approximation is **5–7 bits/base** in `input2`.
 
 ## Background
 
@@ -98,7 +98,7 @@ There are also other algorithms for building the BWT for large read collections 
 * An option to remove duplicate sequences.
 * Adjustable construction parameters:
   * number of threads and sequence blocks
-  * size of thread-specific buffers
+  * size of thread-specific buffers (thread buffers and run buffers)
   * number of merge buffers
 * Documentation in the wiki.
 
