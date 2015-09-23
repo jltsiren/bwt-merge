@@ -442,6 +442,15 @@ void open(RLArray<sdsl::int_vector_buffer<8>>& array, const std::string filename
 
 template<>
 void
+RLArray<BlockArray>::clear()
+{
+  this->data.clear();
+  this->run_count = 0;
+  this->value_count = 0;
+}
+
+template<>
+void
 RLArray<sdsl::int_vector_buffer<8>>::clear()
 {
   this->data.close();
@@ -451,11 +460,34 @@ RLArray<sdsl::int_vector_buffer<8>>::clear()
 
 template<>
 void
-RLIterator<sdsl::int_vector_buffer<8>>::read()
+RLArray<BlockArray>::write(const std::string& filename)
+{
+  std::ofstream out(filename.c_str(), std::ios_base::binary);
+  if(!out)
+  {
+    std::cerr << "RLArray::write(): Cannot open output file " << filename << std::endl;
+    std::exit(EXIT_FAILURE);
+  }
+
+  IntVectorBuffer<BlockArray::value_type>::writeHeader(out, this->bytes());
+  for(size_type block = 0; block < this->data.blocks(); block++)
+  {
+    size_type bytes = std::min(BlockArray::BLOCK_SIZE, this->bytes() - block * BlockArray::BLOCK_SIZE);
+    IntVectorBuffer<BlockArray::value_type>::writeData(out, this->data.data[block], bytes);
+    this->data.clear(block);
+  }
+
+  out.close();
+}
+
+template<>
+void
+RLIterator<BlockArray>::read()
 {
   if(this->end()) { this->run.first = ~(value_type)0; this->run.second = ~(length_type)0; return; }
   this->run.first += ByteCode::read(this->array->data, this->ptr);
   this->run.second = ByteCode::read(this->array->data, this->ptr);
+  this->array->data.clearUntil(this->ptr);
 }
 
 //------------------------------------------------------------------------------

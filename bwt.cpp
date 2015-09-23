@@ -135,6 +135,10 @@ BWT::load(std::istream& in)
 
 BWT::BWT(BWT& a, BWT& b, RankArray& ra)
 {
+#ifdef VERBOSE_STATUS_INFO
+  double start = readTimer();
+#endif
+
   a.destroy(); b.destroy();
   ra.open();
 
@@ -178,7 +182,17 @@ BWT::BWT(BWT& a, BWT& b, RankArray& ra)
   buffer.flush(); Run::write(this->data, buffer.run);
   ra.close();
 
+#ifdef VERBOSE_STATUS_INFO
+  double seconds = readTimer() - start;
+  std::cerr << "bwt_merge: BWTs merged in " << seconds << " seconds" << std::endl;
+#endif
+
   this->build();
+
+#ifdef VERBOSE_STATUS_INFO
+  seconds = readTimer() - start;
+  std::cerr << "bwt_merge: rank/select built in " << seconds << " seconds" << std::endl;
+#endif
 }
 
 //------------------------------------------------------------------------------

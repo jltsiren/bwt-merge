@@ -278,10 +278,11 @@ removeDuplicates(std::vector<Element>& vec, bool parallel)
 //------------------------------------------------------------------------------
 
 /*
-  Split the range approximately evenly between the threads.
+  Split the range approximately evenly between the blocks. The actual number of blocks
+  will not be greater than the length of the range or smaller than 1.
 */
 
-std::vector<range_type> getBounds(range_type range, size_type threads);
+std::vector<range_type> getBounds(range_type range, size_type blocks);
 
 //------------------------------------------------------------------------------
 
@@ -350,30 +351,27 @@ Psi(const BWTType& bwt, const AlphabetType& alpha, size_type i)
   Some SDSL extensions.
 */
 
+/*
+  Utility methods for writing int_vector_buffer<k> compatible files, for k = 8, 16, 32, 64.
+*/
 template<class Element>
-size_type
-write_vector(const std::vector<Element>& vec, std::ostream& out, sdsl::structure_tree_node* v, std::string name)
+struct IntVectorBuffer
 {
-  sdsl::structure_tree_node* child = sdsl::structure_tree::add_child(v, name, sdsl::util::class_name(vec));
-  size_type written_bytes = 0;
-  written_bytes += sdsl::write_member(vec.size(), out, child, "size");
-  out.write((char*)(vec.data()), vec.size() * sizeof(Element));
-  written_bytes += vec.size() * sizeof(Element);
-  sdsl::structure_tree::add_size(v, written_bytes);
-  return written_bytes;
-}
+  typedef uint64_t code_type;
 
-template<class Element>
-void
-read_vector(std::vector<Element>& vec, std::istream& in)
-{
-  sdsl::util::clear(vec);
-  size_type size = 0;
-  sdsl::read_member(size, in);
-  std::vector<Element> temp(size);
-  in.read((char*)(temp.data()), temp.size() * sizeof(Element));
-  vec.swap(temp);
-}
+  static void writeHeader(std::ostream& out, size_type elements)
+  {
+    size_type bits = elements * 8 * sizeof(Element);
+    sdsl::write_member(bits, out);
+  }
+
+  static void writeData(std::ostream& out, const Element* data, size_type elements)
+  {
+    size_type bytes = elements * sizeof(Element);
+    if(bytes % sizeof(code_type) != 0) { bytes += sizeof(code_type) - bytes % sizeof(code_type); }
+    out.write((const char*)data, bytes);
+  }
+};
 
 /*
   Extracts the given range from source, overwriting target.

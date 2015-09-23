@@ -126,18 +126,22 @@ tempFile(const std::string& name_part)
 //------------------------------------------------------------------------------
 
 std::vector<range_type>
-getBounds(range_type range, size_type threads)
+getBounds(range_type range, size_type blocks)
 {
-  std::vector<range_type> bounds(threads);
-  for(size_type thread = 0, start = range.first; thread < threads; thread++)
+  blocks = std::min(blocks, Range::length(range));
+  blocks = std::max(blocks, (size_type)1);
+
+  std::vector<range_type> bounds(blocks);
+  for(size_type block = 0, start = range.first; block < blocks; block++)
   {
-    bounds[thread].first = start;
+    bounds[block].first = start;
     if(start <= range.second)
     {
-      start += std::max((size_type)1, (range.second + 1 - start) / (threads - thread));
+      start += std::max((size_type)1, (range.second + 1 - start) / (blocks - block));
     }
-    bounds[thread].second = start - 1;
+    bounds[block].second = start - 1;
   }
+
   return bounds;
 }
 

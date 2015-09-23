@@ -66,6 +66,10 @@ main(int argc, char** argv)
   if(verify) { std::cout << "Patterns: " << pattern_name << std::endl; }
   std::cout << std::endl;
 
+  MergeParameters parameters;
+  std::cout << parameters;
+  std::cout << std::endl;
+
   std::vector<std::string> patterns;
   if(verify)
   {

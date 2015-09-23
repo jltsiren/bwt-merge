@@ -152,6 +152,8 @@ struct MergeBuffer
   typedef RLArray<BlockArray> buffer_type;
   typedef RLArray<BlockArray>::run_type run_type;
 
+  MergeParameters parameters;
+
   std::vector<omp_lock_t>  buffer_locks;
   std::vector<buffer_type> merge_buffers;
 
@@ -163,8 +165,10 @@ struct MergeBuffer
 
   size_type  size;
 
-  MergeBuffer(size_type _size, size_type buffers = FMI::MERGE_BUFFERS) :
-    buffer_locks(buffers), merge_buffers(buffers), ra_values(0), ra_bytes(0), size(_size)
+  MergeBuffer(size_type _size, const MergeParameters& _parameters) :
+    parameters(_parameters),
+    buffer_locks(_parameters.merge_buffers), merge_buffers(_parameters.merge_buffers),
+    ra_values(0), ra_bytes(0), size(_size)
   {
     for(size_type i = 0; i < buffer_locks.size(); i++) { omp_init_lock(&(this->buffer_locks[i])); }
     omp_init_lock(&(this->ra_lock));
@@ -214,12 +218,14 @@ struct MergeBuffer
     {
       this->merge_buffers[i] = buffer_type(this->merge_buffers[i], this->merge_buffers[i - 1]);
     }
+#ifdef VERBOSE_STATUS_INFO
     #pragma omp critical
     {
       std::cerr << "buildRA(): Thread " << omp_get_thread_num() << ": Flushing "
                 << this->merge_buffers[this->merge_buffers.size() - 1].values()
                 << " values to disk." << std::endl;
     }
+#endif
     this->write(this->merge_buffers[this->merge_buffers.size() - 1]);
   }
 };
@@ -228,11 +234,11 @@ const std::string MergeBuffer::TEMP_NAME = ".bwtmerge";
 
 void
 mergeRA(MergeBuffer& mb, MergeBuffer::buffer_type& thread_buffer,
-  std::vector<MergeBuffer::run_type>& buffer, bool force)
+  std::vector<MergeBuffer::run_type>& run_buffer, bool force)
 {
-  MergeBuffer::buffer_type temp_buffer(buffer); buffer.clear();
+  MergeBuffer::buffer_type temp_buffer(run_buffer); run_buffer.clear();
   thread_buffer = MergeBuffer::buffer_type(thread_buffer, temp_buffer);
-  if(!force && thread_buffer.bytes() < FMI::THREAD_BUFFER_SIZE) { return; }
+  if(!force && thread_buffer.bytes() < mb.parameters.thread_buffer_size) { return; }
 
 #ifdef VERBOSE_STATUS_INFO
   #pragma omp critical
@@ -285,16 +291,19 @@ buildRA(const FMI& a, const FMI& b, MergeBuffer& mb, range_type sequence_range)
   if(Range::empty(sequence_range)) { return; }
 
   MergeBuffer::buffer_type thread_buffer;
-  std::vector<MergeBuffer::run_type> buffer;
+  std::vector<MergeBuffer::run_type> run_buffer; run_buffer.reserve(mb.parameters.run_buffer_size);
   std::stack<MergePosition> positions;
-  BWT::ranks_type a_pos, b_sp, b_ep;
+  BWT::ranks_type b_sp, b_ep;
 
   positions.push(MergePosition(a.sequences(), sequence_range));
   while(!(positions.empty()))
   {
     MergePosition curr = positions.top(); positions.pop();
-    buffer.push_back(MergeBuffer::run_type(curr.a_pos, Range::length(curr.b_range)));
-    if(buffer.size() >= FMI::RUN_BUFFER_SIZE) { mergeRA(mb, thread_buffer, buffer, false); }
+    run_buffer.push_back(MergeBuffer::run_type(curr.a_pos, Range::length(curr.b_range)));
+    if(run_buffer.size() >= mb.parameters.run_buffer_size)
+    {
+      mergeRA(mb, thread_buffer, run_buffer, false);
+    }
 
     if(Range::length(curr.b_range) <= FMI::SHORT_RANGE)
     {
@@ -309,15 +318,15 @@ buildRA(const FMI& a, const FMI& b, MergeBuffer& mb, range_type sequence_range)
     }
     else
     {
-      a.LF(curr.a_pos, a_pos); b.LF(curr.b_range, b_sp, b_ep);
+      b.LF(curr.b_range, b_sp, b_ep);
       for(comp_type c = 1; c < b.alpha.sigma; c++)
       {
-        if(b_sp[c] <= b_ep[c]) { positions.push(MergePosition(a_pos[c], b_sp[c], b_ep[c])); }
+        if(b_sp[c] <= b_ep[c]) { positions.push(MergePosition(a.LF(curr.a_pos, c), b_sp[c], b_ep[c])); }
       }
     }
   }
 
-  mergeRA(mb, thread_buffer, buffer, true);
+  mergeRA(mb, thread_buffer, run_buffer, true);
 #ifdef VERBOSE_STATUS_INFO
   #pragma omp critical
   {
@@ -327,7 +336,7 @@ buildRA(const FMI& a, const FMI& b, MergeBuffer& mb, range_type sequence_range)
 #endif
 }
 
-FMI::FMI(FMI& a, FMI& b)
+FMI::FMI(FMI& a, FMI& b, MergeParameters parameters)
 {
   if(a.alpha != b.alpha)
   {
@@ -341,10 +350,10 @@ FMI::FMI(FMI& a, FMI& b)
   double start = readTimer();
 #endif
 
-  size_type threads = omp_get_max_threads();
-  std::vector<range_type> bounds = getBounds(range_type(0, b.sequences() - 1), 4 * threads);
+  omp_set_num_threads(parameters.threads);
+  std::vector<range_type> bounds = getBounds(range_type(0, b.sequences() - 1), parameters.sequence_blocks);
 
-  MergeBuffer mb(b.size());
+  MergeBuffer mb(b.size(), parameters);
   #pragma omp parallel for schedule(dynamic, 1)
   for(size_type block = 0; block < bounds.size(); block++)
   {
@@ -431,6 +440,28 @@ load(FMI& fmi, const std::string& filename, const std::string& format)
     std::cerr << "load(): Invalid BWT format: " << format << std::endl;
     std::exit(EXIT_FAILURE);
   }
+}
+
+//------------------------------------------------------------------------------
+
+MergeParameters::MergeParameters() :
+  run_buffer_size(RUN_BUFFER_SIZE), thread_buffer_size(THREAD_BUFFER_SIZE),
+  merge_buffers(MERGE_BUFFERS),
+  threads(omp_get_max_threads()), sequence_blocks(threads * BLOCKS_PER_THREAD)
+{
+}
+
+std::ostream&
+operator<< (std::ostream& stream, const MergeParameters& parameters)
+{
+  stream << "Merge parameters" << std::endl;
+  stream << "Run buffer size:    "
+    << inMegabytes(parameters.run_buffer_size * sizeof(MergeBuffer::run_type)) << " MB" << std::endl;
+  stream << "Thread buffer size: " << inMegabytes(parameters.thread_buffer_size) << " MB" << std::endl;
+  stream << "Merge buffers:      " << parameters.merge_buffers << std::endl;
+  stream << "Threads:            " << parameters.threads << std::endl;
+  stream << "Sequence blocks:    " << parameters.sequence_blocks << std::endl;
+  return stream;
 }
 
 //------------------------------------------------------------------------------

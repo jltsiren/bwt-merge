@@ -387,7 +387,7 @@ private:
   A run-length encoded non-decreasing integer array, based on any byte array with
   operator[] and member function push_back(). Intended usage is RLArray<BlockArray>
   in memory and RLArray<sdsl::int_vector_buffer<8>> on disk. Note that the iterator
-  is destructive if the array type is BlockArray.
+  and write() are destructive if the array type is BlockArray.
 
   Note that there is no support for serialize() / load().
 */
@@ -489,7 +489,6 @@ public:
 
   void clear()
   {
-    this->data.clear();
     this->run_count = this->value_count = 0;
   }
 
@@ -522,8 +521,9 @@ private:
 void open(RLArray<sdsl::int_vector_buffer<8>>& array, const std::string filename,
   size_type runs, size_type values);
 
-template<>
-void RLArray<sdsl::int_vector_buffer<8>>::clear();
+template<> void RLArray<BlockArray>::clear();
+template<> void RLArray<sdsl::int_vector_buffer<8>>::clear();
+template<> void RLArray<BlockArray>::write(const std::string& filename);
 
 //------------------------------------------------------------------------------
 
@@ -567,12 +567,11 @@ private:
     if(this->end()) { this->run.first = ~(value_type)0; this->run.second = ~(length_type)0; return; }
     this->run.first += ByteCode::read(this->array->data, this->ptr);
     this->run.second = ByteCode::read(this->array->data, this->ptr);
-    this->array->data.clearUntil(this->ptr);
   }
 };  // class RLIterator
 
 template<>
-void RLIterator<sdsl::int_vector_buffer<8>>::read();
+void RLIterator<BlockArray>::read();
 
 //------------------------------------------------------------------------------
 

@@ -43,6 +43,24 @@ void load(FMI& fmi, const std::string& filename, const std::string& format);
 
 //------------------------------------------------------------------------------
 
+struct MergeParameters
+{
+  const static size_type RUN_BUFFER_SIZE = 8 * MEGABYTE;      // Runs.
+  const static size_type THREAD_BUFFER_SIZE = 512 * MEGABYTE; // Bytes.
+  const static size_type MERGE_BUFFERS = 5;
+  const static size_type BLOCKS_PER_THREAD = 4;
+
+  size_type run_buffer_size, thread_buffer_size;
+  size_type merge_buffers;
+  size_type threads, sequence_blocks;
+
+  MergeParameters();
+};
+
+std::ostream& operator<< (std::ostream& stream, const MergeParameters& parameters);
+
+//------------------------------------------------------------------------------
+
 class FMI
 {
 public:
@@ -64,14 +82,10 @@ public:
 
 //------------------------------------------------------------------------------
 
-  const static size_type THREAD_BUFFER_SIZE = 512 * MEGABYTE; // Bytes.
-  const static size_type RUN_BUFFER_SIZE = 8 * MEGABYTE;      // Runs.
-  const static size_type MERGE_BUFFERS = 5;
-
   /*
     This constructor merges a and b, destroying them in the process.
   */
-  FMI(FMI& a, FMI& b);
+  FMI(FMI& a, FMI& b, MergeParameters parameters = MergeParameters());
 
 //------------------------------------------------------------------------------
 
