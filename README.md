@@ -26,13 +26,13 @@ Many different BWT file formats exist. Some of them are mutually incompatible, w
 The native format of BWT-merge uses numeric values 0-5 as its internal alphabet. By default, these **comp values** are interpreted as `$ACGTN`. Other alphabets of size at most 6 can also be supported, as long as the endmarker is the first character in the alphabet. The following formats are currently supported.
 
 |Format         |Alphabet|Details
-|---------------|:------:|-------
-|`native`       |any     |
-|`plain_default`|default |array of character values
-|`plain_sorted` |sorted  |array of character values
+|:-------------:|:------:|-------
+|`native`       |any     |run-length encoded; includes rank/select support
+|`plain_default`|default |array of characters
+|`plain_sorted` |sorted  |array of characters
 |`rfm`          |sorted  |[Relative FM-index](https://github.com/jltsiren/relative-fm): `int_vector_buffer<8>` of comp values
 |`sdsl`         |sorted  |[SDSL](https://github.com/simongog/sdsl-lite): `int_vector_buffer<8>` of characters
-|`sga`          |default |[SGA](https://github.com/jts/sga)
+|`sga`          |default |[SGA](https://github.com/jts/sga): byte array with 3 bits for the character and 5 bits for the length of the run
 
 ## Current performance
 
