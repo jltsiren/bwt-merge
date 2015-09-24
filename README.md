@@ -79,7 +79,9 @@ There are also other algorithms for building the BWT for large read collections 
 ### Current version
 
 * The native BWT format has a header.
-* `sga_inspect` renamed to `bwt_inspect`. Now it also identifies files in the native format.
+* Optimizations.
+* `sga_inspect` renamed to `bwt_inspect`. Now it also recognizes files in the native format.
+* `bwt_convert` now converts between multiple BWT formats.
 
 ### Version 0.1
 

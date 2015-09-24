@@ -103,199 +103,177 @@ compatible(const Alphabet& alpha, AlphabeticOrder order)
 const std::string NativeFormat::name = "Native format";
 const std::string NativeFormat::tag = "native";
 
-//------------------------------------------------------------------------------
+const std::string PlainFormatD::name = "Plain format (default alphabet)";
+const std::string PlainFormatD::tag = "plain_default";
 
-template<> const std::string PlainFormat<AO_DEFAULT>::name = "Plain format (default)";
-template<> const std::string PlainFormat<AO_SORTED>::name = "Plain format (sorted)";
-template<> const std::string PlainFormat<AO_DEFAULT>::tag = "plain_default";
-template<> const std::string PlainFormat<AO_SORTED>::tag = "plain_sorted";
-
-struct PlainData
-{
-  typedef uint8_t code_type;
-};
-
-void
-readPlain(std::istream& in, BlockArray& data, sdsl::int_vector<64>& counts, const Alphabet& alpha)
-{
-  data.clear();
-  counts = sdsl::int_vector<64>(alpha.sigma, 0);
-
-  RunBuffer run_buffer;
-  std::vector<PlainData::code_type> buffer(MEGABYTE);
-  while(true)
-  {
-    in.read((char*)(buffer.data()), buffer.size());
-    size_type bytes = in.gcount();
-    if(bytes == 0) { break; }
-    for(size_type i = 0; i < bytes; i++)
-    {
-      if(run_buffer.add(buffer[i]))
-      {
-        run_buffer.run.first = alpha.char2comp[run_buffer.run.first];
-        Run::write(data, run_buffer.run);
-        counts[run_buffer.run.first] += run_buffer.run.second;
-      }
-    }
-  }
-  run_buffer.flush();
-  run_buffer.run.first = alpha.char2comp[run_buffer.run.first];
-  Run::write(data, run_buffer.run);
-  counts[run_buffer.run.first] += run_buffer.run.second;
-}
-
-void
-writePlain(std::ostream& out, const BlockArray& data, const Alphabet& alpha)
-{
-  size_type rle_pos = 0, buffer_pos = 0;
-  std::vector<PlainData::code_type> buffer(MEGABYTE);
-  while(rle_pos < data.size())
-  {
-    range_type run = Run::read(data, rle_pos);
-    run.first = alpha.comp2char[run.first];
-    while(run.second > 0)
-    {
-      if(buffer_pos >= buffer.size())
-      {
-        out.write((char*)(buffer.data()), buffer.size());
-        buffer_pos = 0;
-      }
-      size_type length = std::min(buffer.size() - buffer_pos, run.second); run.second -= length;
-      for(size_type i = 0; i < length; i++, buffer_pos++) { buffer[buffer_pos] = run.first; }
-    }
-  }
-  if(buffer_pos > 0)
-  {
-    out.write((char*)(buffer.data()), buffer_pos);
-  }
-}
-
-//------------------------------------------------------------------------------
-
-struct SDSLData
-{
-  typedef uint64_t code_type;
-
-  inline static size_type bits2values(size_type bits) { return (bits + VALUE_SIZE - 1) / VALUE_SIZE; }
-  inline static size_type values2blocks(size_type values) { return (values + BLOCK_SIZE - 1) / BLOCK_SIZE; }
-
-  const static size_type VALUE_SIZE = 8;
-  const static size_type BLOCK_SIZE = 8;
-  const static size_type SIGMA = 6;
-
-  static void read(std::istream& in, BlockArray& data, sdsl::int_vector<64>& counts, const Alphabet& alpha);
-  static void write(std::ostream& out, const BlockArray& data, const Alphabet& alpha);
-};
-
-void
-SDSLData::read(std::istream& in, BlockArray& data, sdsl::int_vector<64>& counts, const Alphabet& alpha)
-{
-  data.clear();
-  counts = sdsl::int_vector<64>(alpha.sigma, 0);
-
-  // Header.
-  size_type bits; sdsl::read_member(bits, in);
-  size_type bytes = bits2values(bits);
-
-  // Data.
-  RunBuffer run_buffer;
-  sdsl::int_vector<8> buffer(MEGABYTE);
-  for(size_type offset = 0; offset < bytes; offset += buffer.size())
-  {
-    size_type buffer_size = std::min(buffer.size(), bytes - offset);
-    in.read((char*)(buffer.data()), values2blocks(buffer_size) * sizeof(SDSLData::code_type));
-    for(size_type i = 0; i < buffer_size; i++)
-    {
-      if(run_buffer.add(buffer[i]))
-      {
-        run_buffer.run.first = alpha.char2comp[run_buffer.run.first];
-        Run::write(data, run_buffer.run);
-        counts[run_buffer.run.first] += run_buffer.run.second;
-      }
-    }
-  }
-  run_buffer.flush();
-  run_buffer.run.first = alpha.char2comp[run_buffer.run.first];
-  Run::write(data, run_buffer.run);
-  counts[run_buffer.run.first] += run_buffer.run.second;
-}
-
-void
-SDSLData::write(std::ostream& out, const BlockArray& data, const Alphabet& alpha)
-{
-  // Header.
-  size_type bits = 0, rle_pos = 0;
-  while(rle_pos < data.size())
-  {
-    range_type run = Run::read(data, rle_pos);
-    bits += run.second * VALUE_SIZE;
-  }
-  sdsl::write_member(bits, out);
-
-  // Data.
-  rle_pos = 0;
-  size_type buffer_pos = 0;
-  sdsl::int_vector<8> buffer(MEGABYTE);
-  while(rle_pos < data.size())
-  {
-    range_type run = Run::read(data, rle_pos);
-    run.first = alpha.comp2char[run.first];
-    while(run.second > 0)
-    {
-      if(buffer_pos >= buffer.size())
-      {
-        out.write((char*)(buffer.data()), buffer.size());
-        buffer_pos = 0;
-      }
-      size_type length = std::min(buffer.size() - buffer_pos, run.second); run.second -= length;
-      for(size_type i = 0; i < length; i++, buffer_pos++) { buffer[buffer_pos] = run.first; }
-    }
-  }
-  if(buffer_pos > 0)
-  {
-    size_type blocks = values2blocks(buffer_pos);
-    out.write((char*)(buffer.data()), blocks * BLOCK_SIZE);
-  }
-}
-
-//------------------------------------------------------------------------------
+const std::string PlainFormatS::name = "Plain format (sorted alphabet)";
+const std::string PlainFormatS::tag = "plain_sorted";
 
 const std::string RFMFormat::name = "RFM format";
 const std::string RFMFormat::tag = "rfm";
 
-void
-RFMFormat::read(std::istream& in, BlockArray& data, sdsl::int_vector<64>& counts)
-{
-  SDSLData::read(in, data, counts, Alphabet(SDSLData::SIGMA));
-}
-
-void
-RFMFormat::write(std::ostream& out, const BlockArray& data)
-{
-  SDSLData::write(out, data, Alphabet(SDSLData::SIGMA));
-}
-
-//------------------------------------------------------------------------------
-
 const std::string SDSLFormat::name = "SDSL format";
 const std::string SDSLFormat::tag = "sdsl";
 
-void
-SDSLFormat::read(std::istream& in, BlockArray& data, sdsl::int_vector<64>& counts)
+const std::string SGAFormat::name = "SGA format";
+const std::string SGAFormat::tag = "sga";
+
+//------------------------------------------------------------------------------
+
+template<class BufferType>
+struct PlainData
 {
-  SDSLData::read(in, data, counts, createAlphabet(order()));
+  typedef bwtmerge::char_type char_type;
+
+  const static size_type BUFFER_SIZE = MEGABYTE;
+
+  static void read(std::ifstream& in, BlockArray& data, sdsl::int_vector<64>& counts, const Alphabet& alpha)
+  {
+    data.clear();
+    counts = sdsl::int_vector<64>(alpha.sigma, 0);
+
+    RunBuffer run_buffer;
+    size_type bytes = BufferType::readHeader(in);
+    char_type* buffer = new char_type[BUFFER_SIZE];
+    for(size_type offset = 0; offset < bytes; offset += BUFFER_SIZE)
+    {
+      size_type buffer_size = std::min(BUFFER_SIZE, bytes - offset);
+      BufferType::readData(in, buffer, buffer_size);
+      for(size_type i = 0; i < buffer_size; i++)
+      {
+        if(run_buffer.add(buffer[i]))
+        {
+          run_buffer.run.first = alpha.char2comp[run_buffer.run.first];
+          Run::write(data, run_buffer.run);
+          counts[run_buffer.run.first] += run_buffer.run.second;
+        }
+      }
+    }
+    run_buffer.flush();
+    run_buffer.run.first = alpha.char2comp[run_buffer.run.first];
+    Run::write(data, run_buffer.run);
+    counts[run_buffer.run.first] += run_buffer.run.second;
+
+    delete[] buffer; buffer = 0;
+  }
+
+  static void write(std::ofstream& out, const BlockArray& data, const Alphabet& alpha, const NativeHeader& info)
+  {
+    BufferType::writeHeader(out, info.bases);
+
+    size_type rle_pos = 0, buffer_pos = 0;
+    char_type* buffer = new char_type[BUFFER_SIZE];
+    while(rle_pos < data.size())
+    {
+      range_type run = Run::read(data, rle_pos);
+      run.first = alpha.comp2char[run.first];
+      while(run.second > 0)
+      {
+        if(buffer_pos >= BUFFER_SIZE)
+        {
+          BufferType::writeData(out, buffer, buffer_pos);
+          buffer_pos = 0;
+        }
+        size_type length = std::min(BUFFER_SIZE - buffer_pos, run.second); run.second -= length;
+        for(size_type i = 0; i < length; i++, buffer_pos++) { buffer[buffer_pos] = run.first; }
+      }
+    }
+    if(buffer_pos > 0) { BufferType::writeData(out, buffer, buffer_pos); }
+
+    delete[] buffer; buffer = 0;
+  }
+};
+
+/*
+  A plain buffer type with interface compatible with the IntVectorBuffer template.
+*/
+template<class Element>
+struct PlainBuffer
+{
+  typedef uint64_t code_type;
+
+  static void writeHeader(std::ofstream&, size_type) {}
+
+  static size_type readHeader(std::ifstream& in)
+  {
+    return fileSize(in);
+  }
+
+  static void writeData(std::ofstream& out, const Element* data, size_type elements)
+  {
+    size_type bytes = elements * sizeof(Element);
+    out.write((const char*)data, bytes);
+  }
+
+  static void readData(std::ifstream& in, Element* data, size_type elements)
+  {
+    size_type bytes = elements * sizeof(Element);
+    in.read((char*)data, bytes);
+  }
+};
+
+//------------------------------------------------------------------------------
+
+void
+PlainFormatD::read(std::ifstream& in, BlockArray& data, sdsl::int_vector<64>& counts)
+{
+  PlainData<PlainBuffer<char_type>>::read(in, data, counts, createAlphabet(order()));
 }
 
 void
-SDSLFormat::write(std::ostream& out, const BlockArray& data)
+PlainFormatD::write(std::ofstream& out, const BlockArray& data, const NativeHeader& info)
 {
-  SDSLData::write(out, data, createAlphabet(order()));
+  PlainData<PlainBuffer<char_type>>::write(out, data, createAlphabet(order()), info);
 }
 
 //------------------------------------------------------------------------------
 
-const std::string SGAFormat::name = "SGA format";
-const std::string SGAFormat::tag = "sga";
+void
+PlainFormatS::read(std::ifstream& in, BlockArray& data, sdsl::int_vector<64>& counts)
+{
+  PlainData<PlainBuffer<char_type>>::read(in, data, counts, createAlphabet(order()));
+}
+
+void
+PlainFormatS::write(std::ofstream& out, const BlockArray& data, const NativeHeader& info)
+{
+  PlainData<PlainBuffer<char_type>>::write(out, data, createAlphabet(order()), info);
+}
+
+//------------------------------------------------------------------------------
+
+struct RFMData
+{
+  const static size_type SIGMA = 6;
+};
+
+void
+RFMFormat::read(std::ifstream& in, BlockArray& data, sdsl::int_vector<64>& counts)
+{
+  PlainData<IntVectorBuffer<comp_type>>::read(in, data, counts, Alphabet(RFMData::SIGMA));
+}
+
+void
+RFMFormat::write(std::ofstream& out, const BlockArray& data, const NativeHeader& info)
+{
+  PlainData<IntVectorBuffer<comp_type>>::write(out, data, Alphabet(RFMData::SIGMA), info);
+}
+
+//------------------------------------------------------------------------------
+
+void
+SDSLFormat::read(std::ifstream& in, BlockArray& data, sdsl::int_vector<64>& counts)
+{
+  PlainData<IntVectorBuffer<char_type>>::read(in, data, counts, createAlphabet(order()));
+}
+
+void
+SDSLFormat::write(std::ofstream& out, const BlockArray& data, const NativeHeader& info)
+{
+  PlainData<IntVectorBuffer<char_type>>::write(out, data, createAlphabet(order()), info);
+}
+
+//------------------------------------------------------------------------------
 
 struct SGAData
 {
@@ -314,7 +292,7 @@ struct SGAData
 };
 
 void
-SGAFormat::read(std::istream& in, BlockArray& data, sdsl::int_vector<64>& counts)
+SGAFormat::read(std::ifstream& in, BlockArray& data, sdsl::int_vector<64>& counts)
 {
   data.clear();
   counts = sdsl::int_vector<64>(SGAData::SIGMA, 0);
@@ -347,15 +325,13 @@ SGAFormat::read(std::istream& in, BlockArray& data, sdsl::int_vector<64>& counts
 }
 
 void
-SGAFormat::write(std::ostream& out, const BlockArray& data)
+SGAFormat::write(std::ofstream& out, const BlockArray& data, const NativeHeader& info)
 {
-  SGAHeader header;
+  SGAHeader header; header.bases = info.bases; header.sequences = info.sequences;
   size_type rle_pos = 0;
   while(rle_pos < data.size())
   {
     range_type run = Run::read(data, rle_pos);
-    if(run.first == 0) { header.sequences += run.second; }
-    header.bases += run.second;
     header.runs += (run.second + SGAData::MAX_RUN - 1) / SGAData::MAX_RUN;
   }
   header.write(out);

@@ -39,90 +39,8 @@ AlphabeticOrder identifyAlphabet(const Alphabet& alpha);
 std::string alphabetName(AlphabeticOrder order);
 bool compatible(const Alphabet& alpha, AlphabeticOrder order);
 
-void readPlain(std::istream& in, BlockArray& data, sdsl::int_vector<64>& counts, const Alphabet& alpha);
-void writePlain(std::ostream& out, const BlockArray& data, const Alphabet& alpha);
-
-//------------------------------------------------------------------------------
-
-/*
-  BWT file formats. Note that BWT formats are only compatible with those having the
-  same alphabetic order.
-
-  load()        reads the BWT from 'in' and stores it in the native format in 'data'
-  write()       writes the BWT stored in the native format in 'data' to 'out'
-  order()       returns the alphabetic order
-
-  name          meaningful name of the format
-  tag           the name used for specifying the format
-
-  NativeFormat  Native BWT format; any alphabetic order
-  PlainFormat   BWT as a character array; any alphabetic order
-  RFMFormat     BWT as int_vector<8> of comp values; AO_SORTED
-  SDSLFormat    BWT as int_vector<8> of characters; AO_SORTED
-  SGAFormat     SGA assembler; AO_DEFAULT
-*/
-
-struct NativeFormat
-{
-  inline static AlphabeticOrder order() { return AO_ANY; }
-
-  const static std::string name;
-  const static std::string tag;
-};
-
-template<AlphabeticOrder ao>
-struct PlainFormat
-{
-  static void read(std::istream& in, BlockArray& data, sdsl::int_vector<64>& counts)
-  {
-    readPlain(in, data, counts, createAlphabet(order()));
-  }
-
-  static void write(std::ostream& out, const BlockArray& data)
-  {
-    writePlain(out, data, createAlphabet(order()));
-  }
-
-  inline static AlphabeticOrder order() { return ao; }
-
-  const static std::string name;
-  const static std::string tag;
-};
-
-template<> const std::string PlainFormat<AO_DEFAULT>::name;
-template<> const std::string PlainFormat<AO_SORTED>::name;
-template<> const std::string PlainFormat<AO_DEFAULT>::tag;
-template<> const std::string PlainFormat<AO_SORTED>::tag;
-
-struct RFMFormat
-{
-  static void read(std::istream& in, BlockArray& data, sdsl::int_vector<64>& counts);
-  static void write(std::ostream& out, const BlockArray& data);
-  inline static AlphabeticOrder order() { return AO_SORTED; }
-
-  const static std::string name;
-  const static std::string tag;
-};
-
-struct SDSLFormat
-{
-  static void read(std::istream& in, BlockArray& data, sdsl::int_vector<64>& counts);
-  static void write(std::ostream& out, const BlockArray& data);
-  inline static AlphabeticOrder order() { return AO_SORTED; }
-
-  const static std::string name;
-  const static std::string tag;
-};
-
-struct SGAFormat
-{
-  static void read(std::istream& in, BlockArray& data, sdsl::int_vector<64>& counts);
-  static void write(std::ostream& out, const BlockArray& data);
-  inline static AlphabeticOrder order() { return AO_DEFAULT; }
-
-  const static std::string name;
-  const static std::string tag;
-};
+void readPlain(std::ifstream& in, BlockArray& data, sdsl::int_vector<64>& counts, const Alphabet& alpha);
+void writePlain(std::ofstream& out, const BlockArray& data, const Alphabet& alpha);
 
 //------------------------------------------------------------------------------
 
@@ -147,6 +65,89 @@ struct NativeHeader
 };
 
 std::ostream& operator<<(std::ostream& stream, const NativeHeader& header);
+
+//------------------------------------------------------------------------------
+
+/*
+  BWT file formats. Note that BWT formats are only compatible with those having the
+  same alphabetic order.
+
+  load()        reads the BWT from 'in' and stores it in the native format in 'data'
+  write()       writes the BWT stored in the native format in 'data' to 'out'
+  order()       returns the alphabetic order
+
+  name          meaningful name of the format
+  tag           the name used for specifying the format
+
+  NativeFormat  Native BWT format; any alphabetic order
+  PlainFormatD  BWT as a character array; AO_DEFAULT
+  PlainFormatS  BWT as a character array; AO_SORTED
+  RFMFormat     BWT as int_vector<8> of comp values; AO_SORTED
+  SDSLFormat    BWT as int_vector<8> of characters; AO_SORTED
+  SGAFormat     SGA assembler; AO_DEFAULT
+*/
+
+struct NativeFormat
+{
+  inline static AlphabeticOrder order() { return AO_ANY; }
+
+  const static std::string name;
+  const static std::string tag;
+};
+
+struct PlainFormatD
+{
+  static void read(std::ifstream& in, BlockArray& data, sdsl::int_vector<64>& counts);
+  static void write(std::ofstream& out, const BlockArray& data, const NativeHeader&);
+
+  inline static AlphabeticOrder order() { return AO_DEFAULT; }
+
+  const static std::string name;
+  const static std::string tag;
+};
+
+struct PlainFormatS
+{
+  static void read(std::ifstream& in, BlockArray& data, sdsl::int_vector<64>& counts);
+  static void write(std::ofstream& out, const BlockArray& data, const NativeHeader&);
+
+  inline static AlphabeticOrder order() { return AO_SORTED; }
+
+  const static std::string name;
+  const static std::string tag;
+};
+
+struct RFMFormat
+{
+  static void read(std::ifstream& in, BlockArray& data, sdsl::int_vector<64>& counts);
+  static void write(std::ofstream& out, const BlockArray& data, const NativeHeader& info);
+  inline static AlphabeticOrder order() { return AO_SORTED; }
+
+  const static std::string name;
+  const static std::string tag;
+};
+
+struct SDSLFormat
+{
+  static void read(std::ifstream& in, BlockArray& data, sdsl::int_vector<64>& counts);
+  static void write(std::ofstream& out, const BlockArray& data, const NativeHeader& info);
+  inline static AlphabeticOrder order() { return AO_SORTED; }
+
+  const static std::string name;
+  const static std::string tag;
+};
+
+struct SGAFormat
+{
+  static void read(std::ifstream& in, BlockArray& data, sdsl::int_vector<64>& counts);
+  static void write(std::ofstream& out, const BlockArray& data, const NativeHeader& info);
+  inline static AlphabeticOrder order() { return AO_DEFAULT; }
+
+  const static std::string name;
+  const static std::string tag;
+};
+
+//------------------------------------------------------------------------------
 
 struct SGAHeader
 {

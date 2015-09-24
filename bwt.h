@@ -25,6 +25,7 @@
 #ifndef _BWTMERGE_SEQUENCE_H
 #define _BWTMERGE_SEQUENCE_H
 
+#include "formats.h"
 #include "support.h"
 
 namespace bwtmerge
@@ -73,7 +74,7 @@ public:
 //------------------------------------------------------------------------------
 
   template<class Format>
-  void serialize(const std::string& filename) const
+  void serialize(const std::string& filename, NativeHeader header) const
   {
     std::ofstream out(filename.c_str(), std::ios_base::binary);
     if(!out)
@@ -81,7 +82,7 @@ public:
       std::cerr << "BWT::serialize(): Cannot open output file " << filename << std::endl;
       return;
     }
-    Format::write(out, this->data);
+    Format::write(out, this->data, header);
     out.close();
   }
 
@@ -102,6 +103,7 @@ public:
 //------------------------------------------------------------------------------
 
   inline size_type size() const { return this->block_boundaries.size(); }
+  inline size_type sequences() const { return this->samples[0].sum(); }
   inline size_type bytes() const { return this->data.size(); }
   inline size_type count(comp_type c) const { return this->samples[c].sum(); }
 

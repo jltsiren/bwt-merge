@@ -90,10 +90,7 @@ FMI::serialize(std::ostream& out, sdsl::structure_tree_node* s, std::string name
   sdsl::structure_tree_node* child = sdsl::structure_tree::add_child(s, name, sdsl::util::class_name(*this));
   size_type written_bytes = 0;
 
-  NativeHeader header;
-  header.sequences = this->sequences();
-  header.bases = this->size();
-  header.setOrder(identifyAlphabet(this->alpha));
+  NativeHeader header = this->getHeader();
   header.write(out); written_bytes += sizeof(NativeHeader);
 
   written_bytes += this->bwt.serialize(out, child, "bwt");
@@ -115,6 +112,18 @@ FMI::load(std::istream& in)
 
   this->bwt.load(in);
   this->alpha.load(in);
+}
+
+//------------------------------------------------------------------------------
+
+NativeHeader
+FMI::getHeader() const
+{
+  NativeHeader header;
+  header.sequences = this->sequences();
+  header.bases = this->size();
+  header.setOrder(identifyAlphabet(this->alpha));
+  return header;
 }
 
 template<>
@@ -381,13 +390,13 @@ serialize(const FMI& fmi, const std::string& filename, const std::string& format
   {
     fmi.serialize<NativeFormat>(filename);
   }
-  else if(format == PlainFormat<AO_DEFAULT>::tag)
+  else if(format == PlainFormatD::tag)
   {
-    fmi.serialize<PlainFormat<AO_DEFAULT>>(filename);
+    fmi.serialize<PlainFormatD>(filename);
   }
-  else if(format == PlainFormat<AO_SORTED>::tag)
+  else if(format == PlainFormatS::tag)
   {
-    fmi.serialize<PlainFormat<AO_SORTED>>(filename);
+    fmi.serialize<PlainFormatS>(filename);
   }
   else if(format == RFMFormat::tag)
   {
@@ -415,13 +424,13 @@ load(FMI& fmi, const std::string& filename, const std::string& format)
   {
     fmi.load<NativeFormat>(filename);
   }
-  else if(format == PlainFormat<AO_DEFAULT>::tag)
+  else if(format == PlainFormatD::tag)
   {
-    fmi.load<PlainFormat<AO_DEFAULT>>(filename);
+    fmi.load<PlainFormatD>(filename);
   }
-  else if(format == PlainFormat<AO_SORTED>::tag)
+  else if(format == PlainFormatS::tag)
   {
-    fmi.load<PlainFormat<AO_SORTED>>(filename);
+    fmi.load<PlainFormatS>(filename);
   }
   else if(format == RFMFormat::tag)
   {

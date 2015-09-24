@@ -29,7 +29,6 @@
 #include <iostream>
 
 #include "bwt.h"
-#include "formats.h"
 
 namespace bwtmerge
 {
@@ -89,6 +88,8 @@ public:
 
 //------------------------------------------------------------------------------
 
+  NativeHeader getHeader() const;
+
   template<class Format>
   void serialize(const std::string& filename) const
   {
@@ -98,7 +99,7 @@ public:
                 << " is not compatible with " << alphabetName(identifyAlphabet(this->alpha))
                 << " alphabets!" << std::endl;
     }
-    this->bwt.serialize<Format>(filename);
+    this->bwt.serialize<Format>(filename, this->getHeader());
   }
 
   template<class Format>
@@ -113,7 +114,7 @@ public:
 //------------------------------------------------------------------------------
 
   inline size_type size() const { return this->bwt.size(); }
-  inline size_type sequences() const { return this->alpha.C[1]; }
+  inline size_type sequences() const { return this->bwt.sequences(); }
 
   inline range_type charRange(comp_type comp) const
   {

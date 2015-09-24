@@ -47,15 +47,17 @@ typedef std::uint8_t  byte_type;
 
 const size_type WORD_BITS = 64;
 
-const size_type KILOBYTE     = 1024;
-const size_type MILLION      = 1000000;
-const size_type MEGABYTE     = KILOBYTE * KILOBYTE;
-const size_type GIGABYTE     = KILOBYTE * MEGABYTE;
+const size_type BYTE_BITS     = 8;
+const size_type KILOBYTE      = 1024;
+const size_type MILLION       = 1000000;
+const size_type MEGABYTE      = KILOBYTE * KILOBYTE;
+const size_type GIGABYTE      = KILOBYTE * MEGABYTE;
 
-const double KILOBYTE_DOUBLE = 1024.0;
-const double MILLION_DOUBLE  = 1000000.0;
-const double MEGABYTE_DOUBLE = KILOBYTE_DOUBLE * KILOBYTE_DOUBLE;
-const double GIGABYTE_DOUBLE = KILOBYTE_DOUBLE * MEGABYTE_DOUBLE;
+const double BYTE_BITS_DOUBLE = 8.0;
+const double KILOBYTE_DOUBLE  = 1024.0;
+const double MILLION_DOUBLE   = 1000000.0;
+const double MEGABYTE_DOUBLE  = KILOBYTE_DOUBLE * KILOBYTE_DOUBLE;
+const double GIGABYTE_DOUBLE  = KILOBYTE_DOUBLE * MEGABYTE_DOUBLE;
 
 //------------------------------------------------------------------------------
 
@@ -145,7 +147,7 @@ inline size_type fnv1a_hash(byte_type b, size_type seed)
 inline size_type fnv1a_hash(size_type val, size_type seed)
 {
   byte_type* chars = (byte_type*)&val;
-  for(size_type i = 0; i < 8; i++) { seed = fnv1a_hash(chars[i], seed); }
+  for(size_type i = 0; i < sizeof(val); i++) { seed = fnv1a_hash(chars[i], seed); }
   return seed;
 }
 
@@ -174,7 +176,7 @@ inGigabytes(size_type bytes)
 inline double
 inBPC(size_type bytes, size_type size)
 {
-  return (8.0 * bytes) / size;
+  return (BYTE_BITS_DOUBLE * bytes) / size;
 }
 
 inline double
@@ -195,10 +197,17 @@ void printTime(const std::string& header, size_type queries, double seconds, siz
 double readTimer();
 size_type memoryUsage(); // Peak memory usage in bytes.
 
+//------------------------------------------------------------------------------
+
 // Returns the total length of the rows, excluding line ends.
 size_type readRows(const std::string& filename, std::vector<std::string>& rows, bool skip_empty_rows);
 
 std::string tempFile(const std::string& name_part);
+
+size_type fileSize(std::ifstream& file);
+size_type fileSize(std::ofstream& file);
+
+//------------------------------------------------------------------------------
 
 template<class Iterator, class Comparator>
 void
@@ -359,17 +368,33 @@ struct IntVectorBuffer
 {
   typedef uint64_t code_type;
 
-  static void writeHeader(std::ostream& out, size_type elements)
+  static void writeHeader(std::ofstream& out, size_type elements)
   {
-    size_type bits = elements * 8 * sizeof(Element);
+    size_type bits = elements * BYTE_BITS * sizeof(Element);
     sdsl::write_member(bits, out);
   }
 
-  static void writeData(std::ostream& out, const Element* data, size_type elements)
+  static size_type readHeader(std::ifstream& in)
+  {
+    size_type bits = 0;
+    sdsl::read_member(bits, in);
+    return bits / (BYTE_BITS * sizeof(Element));
+  }
+
+  static void writeData(std::ofstream& out, Element* data, size_type elements)
   {
     size_type bytes = elements * sizeof(Element);
     if(bytes % sizeof(code_type) != 0) { bytes += sizeof(code_type) - bytes % sizeof(code_type); }
-    out.write((const char*)data, bytes);
+    char* ptr = (char*)data;
+    for(size_type i = elements * sizeof(Element); i < bytes; i++) { ptr[i] = 0; }
+    out.write(ptr, bytes);
+  }
+
+  static void readData(std::ifstream& in, Element* data, size_type elements)
+  {
+    size_type bytes = elements * sizeof(Element);
+    if(bytes % sizeof(code_type) != 0) { bytes += sizeof(code_type) - bytes % sizeof(code_type); }
+    in.read((char*)data, bytes);
   }
 };
 
