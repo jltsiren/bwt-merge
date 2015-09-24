@@ -10,11 +10,29 @@ The implementation is based on the [Succinct Data Structures Library 2.0 (SDSL)]
 
 There are three tools in the package:
 
-`bwt_convert input output` reads a run-length encoded BWT built by the [String Graph Assembler](https://github.com/jts/sga) from file `input` and writes it to file `output` in the native format of BWT-merge. The converted file is often a bit smaller than the input, even though it includes rank/select indexes.
+`bwt_convert [options] input output` reads a run-length encoded BWT built by the [String Graph Assembler](https://github.com/jts/sga) from file `input` and writes it to file `output` in the native format of BWT-merge. The converted file is often a bit smaller than the input, even though it includes rank/select indexes. The input/output formats can be changed with options `-i format` and `-o format`. (See the section on BWT file formats below.)
 
 `bwt_inspect input1 [input2 ...]` tries to identify the BWT formats of the input files. If successful, it will also display some basic information about the files. Only the native format and the SGA format are currently supported.
 
 `bwt_merge input1 input2 output [patterns]` reads the native format BWT files `input1` and `input2`, merges them, and writes the merged BWT to file `output` in the native format. The sequences from `input2` are inserted into `input1`, so `input2` should usually be the smaller of the two. If the optional parameter `patterns` is present, the merging is verified by querying the BWTs by patterns read from file `patterns` (one pattern per line).
+
+## BWT file formats
+
+Many different BWT file formats exist. Some of them are mutually incompatible, while others are essentially different encodings of the same information. There are two main sources of incompatibility:
+
+* **Alphabet:** Many bioinformatics tools use the alphabet `$ACGTN` (in that order). Tools written by computer scientists often assume that the alphabet is sorted, e.g. `$ACGNT`. Because the alphabetic order between characters `N` and `T` is different, the BWTs are incompatible.
+* **Endmarkers:** Some BWTs contain explicit endmarkers (usually denoted by `$`) at the end of each sequence, while others handle the end of sequence implicitly. The endmarker is usually the first character in the alphabet, but it can also be the last character.
+
+The native format of BWT-merge uses numeric values 0-5 as its internal alphabet. By default, these **comp values** are interpreted as `$ACGTN`. Other alphabets of size at most 6 can also be supported, as long as the endmarker is the first character in the alphabet. The following formats are currently supported.
+
+|Format         |Alphabet|Details
+|---------------|:------:|-------
+|`native`       |any     |
+|`plain_default`|default |array of character values
+|`plain_sorted` |sorted  |array of character values
+|`rfm`          |sorted  |[Relative FM-index](https://github.com/jltsiren/relative-fm): `int_vector_buffer<8>` of comp values
+|`sdsl`         |sorted  |[SDSL](https://github.com/simongog/sdsl-lite): `int_vector_buffer<8>` of characters
+|`sga`          |default |[SGA](https://github.com/jts/sga)
 
 ## Current performance
 
