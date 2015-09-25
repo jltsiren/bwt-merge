@@ -460,12 +460,20 @@ MergeParameters::MergeParameters() :
 {
 }
 
+void
+MergeParameters::sanitize()
+{
+  this->threads = std::max(this->threads, (size_type)1);
+  this->threads = std::min(this->threads, (size_type)(omp_get_max_threads()));
+  this->sequence_blocks = std::max(this->sequence_blocks, (size_type)1);
+  this->threads = std::min(this->threads, this->sequence_blocks);
+}
+
 std::ostream&
 operator<< (std::ostream& stream, const MergeParameters& parameters)
 {
-  stream << "Merge parameters" << std::endl;
   stream << "Run buffer size:    "
-    << inMegabytes(parameters.run_buffer_size * sizeof(MergeBuffer::run_type)) << " MB" << std::endl;
+    << inMegabytes(parameters.run_buffer_size * sizeof(MergeParameters::run_type)) << " MB" << std::endl;
   stream << "Thread buffer size: " << inMegabytes(parameters.thread_buffer_size) << " MB" << std::endl;
   stream << "Merge buffers:      " << parameters.merge_buffers << std::endl;
   stream << "Threads:            " << parameters.threads << std::endl;

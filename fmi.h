@@ -44,16 +44,32 @@ void load(FMI& fmi, const std::string& filename, const std::string& format);
 
 struct MergeParameters
 {
+  typedef typename RLArray<BlockArray>::run_type run_type;
+
   const static size_type RUN_BUFFER_SIZE = 8 * MEGABYTE;      // Runs.
   const static size_type THREAD_BUFFER_SIZE = 512 * MEGABYTE; // Bytes.
   const static size_type MERGE_BUFFERS = 5;
   const static size_type BLOCKS_PER_THREAD = 4;
 
+  MergeParameters();
+  void sanitize();
+
+  // Default sizes for the buffers in megabytes.
+  inline static double defaultRB() { return inMegabytes(RUN_BUFFER_SIZE * sizeof(run_type)); }
+  inline static double defaultTB() { return inMegabytes(THREAD_BUFFER_SIZE); }
+  inline static size_type defaultMB() { return MERGE_BUFFERS; }
+  inline static size_type defaultT()  { return omp_get_max_threads(); }
+  inline static size_type defaultSB() { return BLOCKS_PER_THREAD; }
+
+  inline void setRB(size_type mb) { this->run_buffer_size = mb * MEGABYTE / sizeof(run_type); }
+  inline void setTB(size_type mb) { this->thread_buffer_size = mb * MEGABYTE; }
+  inline void setMB(size_type n)  { this->merge_buffers = n; }
+  inline void setT(size_type n)   { this->threads = n; }
+  inline void setSB(size_type n)  { this->sequence_blocks = n; }
+
   size_type run_buffer_size, thread_buffer_size;
   size_type merge_buffers;
   size_type threads, sequence_blocks;
-
-  MergeParameters();
 };
 
 std::ostream& operator<< (std::ostream& stream, const MergeParameters& parameters);

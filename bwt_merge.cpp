@@ -22,7 +22,8 @@
   SOFTWARE.
 */
 
-#include <stack>
+#include <string>
+#include <unistd.h>
 
 #include "fmi.h"
 
@@ -34,10 +35,12 @@ const size_type RUN_BUFFER_SIZE = MEGABYTE;
 
 //------------------------------------------------------------------------------
 
+void printUsage();
+
 void verifyFMI(FMI& fmi, const std::string& name,
   const std::vector<std::string>& patterns, std::vector<size_type>& results);
 
-void merge(FMI& result, FMI& index, FMI& increment);
+void merge(FMI& result, FMI& index, FMI& increment, const MergeParameters& parameters);
 
 //------------------------------------------------------------------------------
 
@@ -46,27 +49,72 @@ main(int argc, char** argv)
 {
   if(argc < 4)
   {
-    std::cerr << "Usage: bwt_merge input1 input2 output [patterns]" << std::endl;
-    std::cerr << std::endl;
+    printUsage();
     std::exit(EXIT_SUCCESS);
   }
-  bool verify = (argc > 4);
 
   std::cout << "BWT-merge" << std::endl;
   std::cout << std::endl;
 
-  std::string index_name = argv[1];
-  std::string increment_name = argv[2];
-  std::string output_name = argv[3];
-  std::string pattern_name = (verify ? argv[4] : "");
-
-  std::cout << "Input 1: " << index_name << std::endl;
-  std::cout << "Input 2: " << increment_name << std::endl;
-  std::cout << "Output: " << output_name << std::endl;
-  if(verify) { std::cout << "Patterns: " << pattern_name << std::endl; }
-  std::cout << std::endl;
-
+  int c = 0;
+  bool verify = false;
   MergeParameters parameters;
+  std::string index_name, increment_name, output_name, pattern_name;
+
+  while((c = getopt(argc, argv, "b:m:r:s:t:v:")) != -1)
+  {
+    switch(c)
+    {
+    case 'b':
+      parameters.setTB(std::stoul(optarg));
+      break;
+    case 'm':
+      parameters.setMB(std::stoul(optarg));
+      break;
+    case 'r':
+      parameters.setRB(std::stoul(optarg));
+      break;
+    case 's':
+      parameters.setSB(std::stoul(optarg));
+      break;
+    case 't':
+      parameters.setT(std::stoul(optarg));
+      break;
+    case 'v':
+      pattern_name = optarg; verify = true;
+      break;
+    case '?':
+    default:
+      std::exit(EXIT_FAILURE);
+    }
+  }
+
+  parameters.sanitize();
+  if(optind < argc) { index_name = argv[optind]; }
+  else
+  {
+    std::cerr << "bwt_merge: Input 1 unspecified!" << std::endl;
+  }
+  if(optind + 1 < argc) { increment_name = argv[optind + 1]; }
+  else
+  {
+    std::cerr << "bwt_merge: Input 2 unspecified!" << std::endl;
+  }
+  if(optind + 2 < argc) { output_name = argv[optind + 2]; }
+  else
+  {
+    std::cerr << "bwt_merge: Output file unspecified!" << std::endl;
+    std::exit(EXIT_FAILURE);
+  }
+
+  std::cout << "Input 1:            " << index_name << std::endl;
+  std::cout << "Input 2:            " << increment_name << std::endl;
+  std::cout << "Output:             " << output_name << std::endl;
+  if(verify)
+  {
+    std::cout << "Patterns:           " << pattern_name << std::endl;
+  }
+  std::cout << std::endl;
   std::cout << parameters;
   std::cout << std::endl;
 
@@ -94,7 +142,7 @@ main(int argc, char** argv)
 
   FMI merged;
   std::vector<size_type> merged_results;
-  merge(merged, index, increment);
+  merge(merged, index, increment, parameters);
   merged.serialize<NativeFormat>(output_name);
   verifyFMI(merged, "Merged", patterns, merged_results);
 
@@ -120,6 +168,29 @@ main(int argc, char** argv)
   std::cout << std::endl;
 
   return 0;
+}
+
+//------------------------------------------------------------------------------
+
+void
+printUsage()
+{
+  std::cerr << "Usage: bwt_merge [options] input1 input2 output" << std::endl;
+  std::cerr << std::endl;
+
+  std::cerr << "Options:" << std::endl;
+  std::cerr << "  -b N         Set thread buffer size to N megabytes / thread (default "
+            << MergeParameters::defaultTB() << ")" << std::endl;
+  std::cerr << "  -m N         Set the number of merge buffers to N (default "
+            << MergeParameters::defaultMB() << ")" << std::endl;
+  std::cerr << "  -r N         Set run buffer size to N megabytes / thread (default "
+            << MergeParameters::defaultRB() << ")" << std::endl;
+  std::cerr << "  -s N         Set the number of sequence blocks to N (default "
+            << MergeParameters::defaultSB() << " / thread)" << std::endl;
+  std::cerr << "  -t N         Use N parallel threads (default " << MergeParameters::defaultT()
+            << " on this system)" << std::endl;
+  std::cerr << "  -v filename  Verify by querying with patterns from the given file" << std::endl;
+  std::cerr << std::endl;
 }
 
 //------------------------------------------------------------------------------
@@ -152,12 +223,12 @@ verifyFMI(FMI& fmi, const std::string& name,
 }
 
 void
-merge(FMI& result, FMI& index, FMI& increment)
+merge(FMI& result, FMI& index, FMI& increment, const MergeParameters& parameters)
 {
   double increment_mb = inMegabytes(increment.size());
 
   double start = readTimer();
-  result = FMI(index, increment);
+  result = FMI(index, increment, parameters);
   double seconds = readTimer() - start;
   std::cout << "BWTs merged in " << seconds << " seconds ("
             << (increment_mb / seconds) << " MB/s)" << std::endl;

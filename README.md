@@ -14,7 +14,14 @@ There are three tools in the package:
 
 `bwt_inspect input1 [input2 ...]` tries to identify the BWT formats of the input files. If successful, it will also display some basic information about the files. Only the native format and the SGA format are currently supported.
 
-`bwt_merge input1 input2 output [patterns]` reads the native format BWT files `input1` and `input2`, merges them, and writes the merged BWT to file `output` in the native format. The sequences from `input2` are inserted into `input1`, so `input2` should usually be the smaller of the two. If the optional parameter `patterns` is present, the merging is verified by querying the BWTs by patterns read from file `patterns` (one pattern per line).
+`bwt_merge [options] input1 input2 output` reads the native format BWT files `input1` and `input2`, merges them, and writes the merged BWT to file `output` in the native format. The sequences from `input2` are inserted into `input1`, so `input2` should usually be the smaller of the two. There are several options:
+
+* `-r N` sets the size of **run buffers** to *N* megabytes (default 128). The unsorted run buffers are thread-specific and contain 16-byte values.
+* `-b N` sets the size of **thread buffers** to *N* megabytes (default 512). When the run buffer becomes full, its contents are sorted, compressed, and merged with the thread buffer.
+* `-m B` sets the number of **merge buffers** to *N* (default 5). The merge buffers are global and numbered from *0* to *N-1*. When a thread buffer becomes full, its contents are merged with one or more merge buffers. Merge buffer *i* contains *2^i* thread buffers. If there is no room in the merge buffers, all *2^N* thread buffers are merged and written to disk.
+* `-t N` sets the number of **threads** to *N*. The default is the maximum number of threads OpenMP is allowed to use.
+* `-s N` sets the number of **sequence blocks** to *N* (default 4 per thread). Each block consists of roughly the same number of sequences, and the blocks are assigned dynamically to individual threads.
+* `-v patterns` **verifies** the merged BWT by querying it with patterns and comparing the results with those from the inputs. File `patterns` contains one pattern per line.
 
 ## BWT file formats
 
@@ -35,6 +42,8 @@ The native format of BWT-merge uses numeric values 0-5 as its internal alphabet.
 |`sga`          |default |[SGA](https://github.com/jts/sga): byte array with 3 bits for the character and 5 bits for the length of the run
 
 ## Current performance
+
+(This has not been updated for 0.2 yet.)
 
 The input consists of several BWT files from the ReadServer project. Each of the files contains unique (error-corrected, trimmed) reads ending with the bases in the file name.
 
@@ -94,12 +103,13 @@ There are also other algorithms for building the BWT for large read collections 
 
 ## Version history
 
-### Current version
+### Version 0.2
 
+* The second pre-release.
 * The native BWT format has a header.
-* Optimizations.
-* `sga_inspect` renamed to `bwt_inspect`. Now it also recognizes files in the native format.
-* `bwt_convert` now converts between multiple BWT formats.
+* `bwt_inspect` (former `sga_inspect`): Recognizes files in the native format.
+* `bwt_convert`: Converts between multiple BWT formats.
+* `bwt_merge`: Optimizations, adjustable merge parameters.
 
 ### Version 0.1
 
@@ -116,10 +126,6 @@ There are also other algorithms for building the BWT for large read collections 
   * in reverse lexicographic order
   * by position in the reference
 * An option to remove duplicate sequences.
-* Adjustable construction parameters:
-  * number of threads and sequence blocks
-  * size of thread-specific buffers (thread buffers and run buffers)
-  * number of merge buffers
 * Documentation in the wiki.
 
 ## References
