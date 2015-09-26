@@ -139,6 +139,7 @@ BWT::BWT(BWT& a, BWT& b, RankArray& ra)
   double start = readTimer();
 #endif
 
+  size_type total_size = a.size() + b.size();
   a.destroy(); b.destroy();
   ra.open();
 
@@ -183,54 +184,200 @@ BWT::BWT(BWT& a, BWT& b, RankArray& ra)
   ra.close();
 
 #ifdef VERBOSE_STATUS_INFO
-  double seconds = readTimer() - start;
-  std::cerr << "bwt_merge: BWTs merged in " << seconds << " seconds" << std::endl;
+  double midpoint = readTimer();
+  std::cerr << "bwt_merge: BWTs merged in " << (midpoint - start) << " seconds" << std::endl;
 #endif
 
-  this->build();
+  this->build(total_size);
 
 #ifdef VERBOSE_STATUS_INFO
-  seconds = readTimer() - start;
+  double seconds = readTimer() - midpoint;
   std::cerr << "bwt_merge: rank/select built in " << seconds << " seconds" << std::endl;
 #endif
 }
 
 //------------------------------------------------------------------------------
 
-void
-BWT::build()
+size_type
+BWT::rank(size_type i, comp_type c) const
 {
-  std::vector<size_type> block_ends;
-  size_type seq_pos = 0, rle_pos = 0;
-  while(rle_pos < this->bytes())
+  if(c >= SIGMA) { return 0; }
+  if(i > this->size()) { i = this->size(); }
+
+  size_type block = this->block_rank(i);
+  size_type res = this->samples[c].sum(block);
+  size_type rle_pos = block * SAMPLE_RATE;
+  size_type seq_pos = (block > 0 ? this->block_select(block) + 1 : 0);
+
+  while(seq_pos < i)
   {
-    range_type run = Run::read(this->data, rle_pos); seq_pos += run.second;
-    if(rle_pos >= this->bytes() || rle_pos % SAMPLE_RATE == 0) { block_ends.push_back(seq_pos - 1); }
+    range_type run = Run::read(this->data, rle_pos);
+    seq_pos += run.second;  // The starting position of the next run.
+    if(run.first == c)
+    {
+      res += run.second;  // Number of c's before the next run.
+      if(seq_pos > i) { res -= seq_pos - i; }
+    }
   }
 
-  size_type blocks = block_ends.size();
+  return res;
+}
+
+void
+BWT::ranks(size_type i, ranks_type& results) const
+{
+  if(i > this->size()) { i = this->size(); }
+
+  size_type block = this->block_rank(i);
+  for(size_type c = 1; c < SIGMA; c++) { results[c] = this->samples[c].sum(block); }
+  size_type rle_pos = block * SAMPLE_RATE;
+  size_type seq_pos = (block > 0 ? this->block_select(block) + 1 : 0);
+
+  size_type prev = 0;
+  while(seq_pos < i)
   {
-    this->block_boundaries = sdsl::sd_vector<>(block_ends.begin(), block_ends.end());
-    sdsl::util::clear(block_ends);
-    sdsl::util::init_support(this->block_rank, &(this->block_boundaries));
-    sdsl::util::init_support(this->block_select, &(this->block_boundaries));
+    range_type run = Run::read(this->data, rle_pos);
+    seq_pos += run.second;  // The starting position of the next run.
+    results[run.first] += run.second; prev = run.first;
+  }
+  results[prev] -= seq_pos - i;
+}
+
+void
+BWT::ranks(range_type range, rank_ranges_type& results) const
+{
+  range.first = std::min(range.first, this->size() - 1);
+  range.second = std::min(range.second, this->size() - 1);
+  for(size_type c = 1; c < SIGMA; c++) { results[c] = range_type(0, 0); }
+
+  size_type block = this->block_rank(range.first);
+  size_type rle_pos = block * SAMPLE_RATE;
+  size_type seq_pos = (block > 0 ? this->block_select(block) + 1 : 0);
+
+  // Compute the ranks within the block until range.first.
+  range_type run(0, 0);
+  while(seq_pos < range.first)
+  {
+    run = Run::read(this->data, rle_pos);
+    seq_pos += run.second;  // The starting position of the next run.
+    results[run.first].first += run.second;
+    results[run.first].second += run.second;
+  }
+  results[run.first].first -= seq_pos - range.first;
+
+  // Process the actual range.
+  while(seq_pos <= range.second)
+  {
+    run = Run::read(this->data, rle_pos);
+    seq_pos += run.second; // The starting position of the next run.
+    results[run.first].second += run.second;
+  }
+  results[run.first].second -= (seq_pos - 1) - range.second;
+
+  // Add the ranks before the block if there were occurrences.
+  for(size_type c = 1; c < SIGMA; c++)
+  {
+    if(results[c].second > results[c].first)
+    {
+      size_type temp = this->samples[c].sum(block);
+      results[c].first += temp; results[c].second += temp;
+    }
+  }
+}
+
+size_type
+BWT::select(size_type i, comp_type c) const
+{
+  if(c >= SIGMA) { return 0; }
+  if(i == 0) { return 0; }
+  if(i > this->count(c)) { return this->size(); }
+
+  size_type block = this->samples[c].inverse(i - 1);
+  size_type count = this->samples[c].sum(block);
+  size_type rle_pos = block * SAMPLE_RATE;
+  size_type seq_pos = (block > 0 ? this->block_select(block) + 1 : 0);
+  while(true)
+  {
+    range_type run = Run::read(this->data, rle_pos);
+    seq_pos += run.second - 1;  // The last position in the run.
+    if(run.first == c)
+    {
+      count += run.second;  // Number of c's up to the end of the run.
+      if(count >= i) { return seq_pos + i - count; }
+    }
+    seq_pos++;  // Move to the first position in the next run.
+  }
+}
+
+comp_type
+BWT::operator[](size_type i) const
+{
+  if(i >= this->size()) { return 0; }
+
+  size_type block = this->block_rank(i);
+  size_type rle_pos = block * SAMPLE_RATE;
+  size_type seq_pos = (block > 0 ? this->block_select(block) + 1 : 0);
+  while(true)
+  {
+    range_type run = Run::read(this->data, rle_pos);
+    seq_pos += run.second;  // The start of the next run.
+    if(seq_pos > i) { return run.first; }
+  }
+}
+
+range_type
+BWT::inverse_select(size_type i) const
+{
+  range_type run(0, 0);
+  if(i >= this->size()) { return run; }
+
+  size_type block = this->block_rank(i);
+  size_type rle_pos = block * SAMPLE_RATE;
+  size_type seq_pos = (block > 0 ? this->block_select(block) + 1 : 0);
+
+  size_type ranks[SIGMA] = {};
+  while(seq_pos <= i)
+  {
+    run = Run::read(this->data, rle_pos);
+    seq_pos += run.second;  // The starting position of the next run.
+    ranks[run.first] += run.second; // Number of c's before the next run.
   }
 
+  return range_type(this->samples[run.first].sum(block) + ranks[run.first] - (seq_pos - i), run.first);
+}
+
+//------------------------------------------------------------------------------
+
+void
+BWT::build(size_type total_size)
+{
+  size_type blocks = (this->bytes() + SAMPLE_RATE - 1) / SAMPLE_RATE;
+  sdsl::int_vector<0> block_ends(blocks, 0, bit_length(total_size));
   sdsl::int_vector<0> counts[SIGMA];
   for(size_type c = 0; c < SIGMA; c++)
   {
-    counts[c] = sdsl::int_vector<0>(blocks, 0, bit_length(this->size()));
+    counts[c] = sdsl::int_vector<0>(blocks, 0, bit_length(total_size));
   }
-  for(size_type block = 0; block < blocks; block++)
+
+  // Scan the BWT and determine block boundaries and ranks.
+  // This could be done in parallel, but it would create potential problems, because
+  // adjacent values of int_vector are (partially) stored in the same words.
+  size_type seq_pos = 0, rle_pos = 0, block = 0;
+  while(rle_pos < this->bytes())
   {
-    size_type limit = std::min(this->bytes(), (block + 1) * SAMPLE_RATE);
-    rle_pos = block * SAMPLE_RATE;
-    while(rle_pos < limit)
+    range_type run = Run::read(this->data, rle_pos); seq_pos += run.second;
+    counts[run.first][block] += run.second;
+    if(rle_pos >= this->bytes() || rle_pos % SAMPLE_RATE == 0)
     {
-      range_type run = Run::read(this->data, rle_pos);
-      counts[run.first][block] += run.second;
+      block_ends[block] = seq_pos - 1; block++;
     }
   }
+
+  // Build the compressed structures. Save memory by doing it sequentially.
+  this->block_boundaries = sdsl::sd_vector<>(block_ends.begin(), block_ends.end());
+  sdsl::util::clear(block_ends);
+  sdsl::util::init_support(this->block_rank, &(this->block_boundaries));
+  sdsl::util::init_support(this->block_select, &(this->block_boundaries));
   for(size_type c = 0; c < SIGMA; c++)
   {
     this->samples[c] = CumulativeArray(counts[c]);

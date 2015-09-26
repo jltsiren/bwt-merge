@@ -49,7 +49,8 @@ public:
   const static size_type SAMPLE_RATE = Run::BLOCK_SIZE;
   const static size_type SIGMA       = Run::SIGMA;
 
-  typedef std::array<size_type, SIGMA> ranks_type;
+  typedef std::array<size_type, SIGMA>  ranks_type;
+  typedef std::array<range_type, SIGMA> rank_ranges_type;
 
   BWT();
   BWT(const BWT& source);
@@ -97,7 +98,10 @@ public:
     }
     Format::read(in, this->data, counts);
     in.close();
-    this->build();
+
+    size_type total_size = 0;
+    for(size_type c = 0; c < counts.size(); c++) { total_size += counts[c]; }
+    this->build(total_size);
   }
 
 //------------------------------------------------------------------------------
@@ -107,110 +111,24 @@ public:
   inline size_type bytes() const { return this->data.size(); }
   inline size_type count(comp_type c) const { return this->samples[c].sum(); }
 
-  inline size_type rank(size_type i, comp_type c) const
-  {
-    if(c >= SIGMA) { return 0; }
-    if(i > this->size()) { i = this->size(); }
-
-    size_type block = this->block_rank(i);
-    size_type res = this->samples[c].sum(block);
-    size_type rle_pos = block * SAMPLE_RATE;
-    size_type seq_pos = (block > 0 ? this->block_select(block) + 1 : 0);
-
-    while(seq_pos < i)
-    {
-      range_type run = Run::read(this->data, rle_pos);
-      seq_pos += run.second;  // The starting position of the next run.
-      if(run.first == c)
-      {
-        res += run.second;  // Number of c's before the next run.
-        if(seq_pos > i) { res -= seq_pos - i; }
-      }
-    }
-
-    return res;
-  }
+  size_type rank(size_type i, comp_type c) const;
+  size_type select(size_type i, comp_type c) const;
+  comp_type operator[](size_type i) const;
 
   /*
     Computes rank(i) for comp values 1 to SIGMA - 1.
   */
-  inline void ranks(size_type i, ranks_type& results) const
-  {
-    if(i > this->size()) { i = this->size(); }
+  void ranks(size_type i, ranks_type& results) const;
 
-    size_type block = this->block_rank(i);
-    for(size_type c = 1; c < SIGMA; c++) { results[c] = this->samples[c].sum(block); }
-    size_type rle_pos = block * SAMPLE_RATE;
-    size_type seq_pos = (block > 0 ? this->block_select(block) + 1 : 0);
-
-    size_type prev = 0;
-    while(seq_pos < i)
-    {
-      range_type run = Run::read(this->data, rle_pos);
-      seq_pos += run.second;  // The starting position of the next run.
-      results[run.first] += run.second; prev = run.first;
-    }
-    results[prev] -= seq_pos - i;
-  }
-
-  inline size_type select(size_type i, comp_type c) const
-  {
-    if(c >= SIGMA) { return 0; }
-    if(i == 0) { return 0; }
-    if(i > this->count(c)) { return this->size(); }
-
-    size_type block = this->samples[c].inverse(i - 1);
-    size_type count = this->samples[c].sum(block);
-    size_type rle_pos = block * SAMPLE_RATE;
-    size_type seq_pos = (block > 0 ? this->block_select(block) + 1 : 0);
-    while(true)
-    {
-      range_type run = Run::read(this->data, rle_pos);
-      seq_pos += run.second - 1;  // The last position in the run.
-      if(run.first == c)
-      {
-        count += run.second;  // Number of c's up to the end of the run.
-        if(count >= i) { return seq_pos + i - count; }
-      }
-      seq_pos++;  // Move to the first position in the next run.
-    }
-  }
-
-  inline comp_type operator[](size_type i) const
-  {
-    if(i >= this->size()) { return 0; }
-
-    size_type block = this->block_rank(i);
-    size_type rle_pos = block * SAMPLE_RATE;
-    size_type seq_pos = (block > 0 ? this->block_select(block) + 1 : 0);
-    while(true)
-    {
-      range_type run = Run::read(this->data, rle_pos);
-      seq_pos += run.second;  // The start of the next run.
-      if(seq_pos > i) { return run.first; }
-    }
-  }
+  /*
+    Computers (rank(range.first), rank(range.second + 1)) for comp values 1 to SIGMA - 1
+    by doing a linear scan. If there are no occurrences of character c in the range,
+    results[c] may be incorrect.
+  */
+  void ranks(range_type range, rank_ranges_type& results) const;
 
   // returns (rank(i, seq[i]), seq[i])
-  inline range_type inverse_select(size_type i) const
-  {
-    range_type run(0, 0);
-    if(i >= this->size()) { return run; }
-
-    size_type block = this->block_rank(i);
-    size_type rle_pos = block * SAMPLE_RATE;
-    size_type seq_pos = (block > 0 ? this->block_select(block) + 1 : 0);
-
-    size_type ranks[SIGMA] = {};
-    while(seq_pos <= i)
-    {
-      run = Run::read(this->data, rle_pos);
-      seq_pos += run.second;  // The starting position of the next run.
-      ranks[run.first] += run.second; // Number of c's before the next run.
-    }
-
-    return range_type(this->samples[run.first].sum(block) + ranks[run.first] - (seq_pos - i), run.first);
-  }
+  range_type inverse_select(size_type i) const;
 
 //------------------------------------------------------------------------------
 
@@ -264,7 +182,7 @@ private:
   void setVectors();
 
   // Builds/destroys the rank/select structures.
-  void build();
+  void build(size_type total_size);
   void destroy();
 };  // class BWT
 

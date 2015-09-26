@@ -302,7 +302,8 @@ buildRA(const FMI& a, const FMI& b, MergeBuffer& mb, range_type sequence_range)
   MergeBuffer::buffer_type thread_buffer;
   std::vector<MergeBuffer::run_type> run_buffer; run_buffer.reserve(mb.parameters.run_buffer_size);
   std::stack<MergePosition> positions;
-  BWT::ranks_type b_sp, b_ep;
+  BWT::ranks_type a_pos, b_sp, b_ep;
+  BWT::rank_ranges_type b_range;
 
   positions.push(MergePosition(a.sequences(), sequence_range));
   while(!(positions.empty()))
@@ -314,23 +315,31 @@ buildRA(const FMI& a, const FMI& b, MergeBuffer& mb, range_type sequence_range)
       mergeRA(mb, thread_buffer, run_buffer, false);
     }
 
-    if(Range::length(curr.b_range) <= FMI::SHORT_RANGE)
+    if(Range::length(curr.b_range) == 1)
     {
-      for(size_type i = curr.b_range.first; i <= curr.b_range.second; i++)
+      range_type pred = b.LF(curr.b_range.first);
+      if(pred.second != 0)
       {
-        range_type pred = b.LF(i);
-        if(pred.second != 0)
+        positions.push(MergePosition(a.LF(curr.a_pos, pred.second), pred.first));
+      }
+    }
+    else if(Range::length(curr.b_range) <= FMI::SHORT_RANGE)
+    {
+      b.LF(curr.b_range, b_range);
+      for(size_type c = 1; c < b.alpha.sigma; c++)
+      {
+        if(!(Range::empty(b_range[c])))
         {
-          positions.push(MergePosition(a.LF(curr.a_pos, pred.second), pred.first));
+          positions.push(MergePosition(a.LF(curr.a_pos, c), b_range[c]));
         }
       }
     }
     else
     {
-      b.LF(curr.b_range, b_sp, b_ep);
-      for(comp_type c = 1; c < b.alpha.sigma; c++)
+      a.LF(curr.a_pos, a_pos); b.LF(curr.b_range, b_sp, b_ep);
+      for(size_type c = 1; c < b.alpha.sigma; c++)
       {
-        if(b_sp[c] <= b_ep[c]) { positions.push(MergePosition(a.LF(curr.a_pos, c), b_sp[c], b_ep[c])); }
+        if(b_sp[c] <= b_ep[c]) { positions.push(MergePosition(a_pos[c], b_sp[c], b_ep[c])); }
       }
     }
   }

@@ -81,7 +81,7 @@ class FMI
 public:
   typedef BWT::size_type size_type;
 
-  const static size_type SHORT_RANGE = 3; // Compute LF(i) individually for ranges up to this length.
+  const static size_type SHORT_RANGE = 256; // Compute LF(range) by a linear scan of the BWT.
 
   FMI();
   FMI(const FMI& source);
@@ -171,6 +171,18 @@ public:
     for(size_type c = 1; c < this->alpha.sigma; c++)
     {
       sp[c] += this->alpha.C[c]; ep[c] += this->alpha.C[c] - 1;
+    }
+  }
+
+  /*
+    Computes LF(range) for comp values 1 to sigma - 1 by linear scanning.
+  */
+  inline void LF(range_type range, BWT::rank_ranges_type& results) const
+  {
+    this->bwt.ranks(range, results);
+    for(size_type c = 1; c < this->alpha.sigma; c++)
+    {
+      results[c].first += this->alpha.C[c]; results[c].second += this->alpha.C[c] - 1;
     }
   }
 
