@@ -130,6 +130,7 @@ There are also other algorithms for building the BWT for large read collections 
   * in reverse lexicographic order
   * by position in the reference
 * An option to remove duplicate sequences.
+* `bwt_convert`: Build rank/select only when necessary.
 * Documentation in the wiki.
 
 ## References
