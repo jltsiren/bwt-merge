@@ -41,9 +41,7 @@ The native format of BWT-merge uses numeric values 0-5 as its internal alphabet.
 |`sdsl`         |sorted  |[SDSL](https://github.com/simongog/sdsl-lite): `int_vector_buffer<8>` of characters
 |`sga`          |default |[SGA](https://github.com/jts/sga): byte array with 3 bits for the character and 5 bits for the length of the run
 
-## Current performance
-
-(This has not been updated for 0.2 yet.)
+## Current performance (v0.2.1)
 
 The input consists of several BWT files from the ReadServer project. Each of the files contains unique (error-corrected, trimmed) reads ending with the bases in the file name.
 
@@ -55,19 +53,19 @@ The input consists of several BWT files from the ReadServer project. Each of the
 |SGA + index  |48.3 GB|48.4 GB|32.6 GB|40.6 GB|
 |Native format|38.5 GB|38.7 GB|26.6 GB|32.7 GB|
 
-|Files          |     AA|   AA + TT|AA + TT + AT|AA + TT + AT + TA|
-|---------------|:-----:|:--------:|:----------:|:---------------:|
-|Size           |438 Gbp|   874 Gbp|    1.15 Tbp|         1.51 Tbp|
-|Sequences      |  4.69G|     9.37G|       12.3G|            16.2G|
-|Native format  |38.5 GB|   71.3 GB|     91.5 GB|           117 GB|
-|Time (merge)   |      –|    13.9 h|      10.6 h|           13.8 h|
-|Speed (merge)  |      –|8.71 Mbp/s|  7.28 Mbp/s|       7.20 Mbp/s|
-|Memory (merge) |      –|    152 GB|      178 GB|           208 GB|
-|Disk (merge)   |      –|    268 GB|      220 GB|           289 GB|
-|Time (total)   |      –|    13.9 h|      24.6 h|           38.4 h|
-|Speed (average)|      –|8.71 Mbp/s|  8.08 Mbp/s|       7.77 Mbp/s|
-|Memory (peak)  |      –|    152 GB|      178 GB|           208 GB|
-|Disk (peak)    |      –|    268 GB|      268 GB|           289 GB|
+|Files          |     AA|   AA + TT| AATT + AT|AATTAT + TA|
+|---------------|:-----:|:--------:|:--------:|:---------:|
+|Size           |438 Gbp|   874 Gbp|  1.15 Tbp|   1.51 Tbp|
+|Sequences      |  4.69G|     9.37G|     12.3G|      16.2G|
+|Native format  |38.5 GB|   71.3 GB|   91.5 GB|     117 GB|
+|Time (step)    |      –|    12.4 h|    10.0 h|     12.5 h|
+|Speed (step)   |      –|9.79 Mbp/s|7.74 Mbp/s| 7.97 Mbp/s|
+|Memory (step)  |      –|    150 GB|    171 GB|     202 GB|
+|Disk (step)    |      –|    267 GB|    220 GB|     289 GB|
+|Time (total)   |      –|    12.4 h|    22.3 h|     34.9 h|
+|Speed (average)|      –|9.79 Mbp/s|8.88 Mbp/s| 8.55 Mbp/s|
+|Memory (peak)  |      –|    150 GB|    171 GB|     202 GB|
+|Disk (peak)    |      –|    267 GB|    267 GB|     289 GB|
 
 The experiments were run on a system with two 16-core AMD Opteron 6378 processors and 256 gigabytes of memory. The parameters were 32 **threads**, 128 **sequence blocks**, 128-megabyte **run buffers**, 512-megabyte **thread buffers**, and 5 **merge buffers**. The measured times include disk I/O and index verification.
 
@@ -103,6 +101,11 @@ There are also other algorithms for building the BWT for large read collections 
 
 ## Version history
 
+### Version 0.2.1
+
+* Minor performance update.
+* Faster construction of the rank array and the rank/select structures.
+
 ### Version 0.2
 
 * The second pre-release.
@@ -120,6 +123,7 @@ There are also other algorithms for building the BWT for large read collections 
 
 ## Future work
 
+* Multithreaded merging of the rank array.
 * Input/output in any supported BWT format.
 * Different options for where the sequences from `input2` are inserted:
   * after the sequences from `input1` (current behavior)
