@@ -166,8 +166,6 @@ struct MergeBuffer
   std::vector<omp_lock_t>  buffer_locks;
   std::vector<buffer_type> merge_buffers;
 
-  const static std::string TEMP_NAME;
-
   omp_lock_t ra_lock;
   RankArray  ra;
   size_type  ra_values, ra_bytes;
@@ -196,7 +194,7 @@ struct MergeBuffer
     size_type buffer_values = buffer.values(), buffer_bytes = buffer.bytes();
 
     omp_set_lock(&(this->ra_lock));
-    std::string filename = tempFile(TEMP_NAME);
+    std::string filename = tempFile(this->parameters.tempPrefix());
     this->ra.filenames.push_back(filename);
     this->ra.run_counts.push_back(buffer.size());
     this->ra.value_counts.push_back(buffer.values());
@@ -238,8 +236,6 @@ struct MergeBuffer
     this->write(this->merge_buffers[this->merge_buffers.size() - 1]);
   }
 };
-
-const std::string MergeBuffer::TEMP_NAME = ".bwtmerge";
 
 void
 mergeRA(MergeBuffer& mb, MergeBuffer::buffer_type& thread_buffer,
@@ -462,10 +458,14 @@ load(FMI& fmi, const std::string& filename, const std::string& format)
 
 //------------------------------------------------------------------------------
 
+const std::string MergeParameters::DEFAULT_TEMP_DIR = ".";
+const std::string MergeParameters::TEMP_FILE_PREFIX = ".bwtmerge";
+
 MergeParameters::MergeParameters() :
   run_buffer_size(RUN_BUFFER_SIZE), thread_buffer_size(THREAD_BUFFER_SIZE),
   merge_buffers(MERGE_BUFFERS),
-  threads(omp_get_max_threads()), sequence_blocks(threads * BLOCKS_PER_THREAD)
+  threads(omp_get_max_threads()), sequence_blocks(threads * BLOCKS_PER_THREAD),
+  temp_dir(DEFAULT_TEMP_DIR)
 {
 }
 
@@ -478,6 +478,20 @@ MergeParameters::sanitize()
   this->threads = std::min(this->threads, this->sequence_blocks);
 }
 
+void
+MergeParameters::setTemp(const std::string& directory)
+{
+  if(directory.length() == 0) { this->temp_dir = DEFAULT_TEMP_DIR; }
+  else if(directory[directory.length() - 1] != '/') { this->temp_dir = directory; }
+  else { this->temp_dir = directory.substr(0, directory.length() - 1); }
+}
+
+std::string
+MergeParameters::tempPrefix() const
+{
+  return this->temp_dir + '/' + TEMP_FILE_PREFIX;
+}
+
 std::ostream&
 operator<< (std::ostream& stream, const MergeParameters& parameters)
 {
@@ -487,6 +501,7 @@ operator<< (std::ostream& stream, const MergeParameters& parameters)
   stream << "Merge buffers:      " << parameters.merge_buffers << std::endl;
   stream << "Threads:            " << parameters.threads << std::endl;
   stream << "Sequence blocks:    " << parameters.sequence_blocks << std::endl;
+  stream << "Temp directory:     " << parameters.temp_dir << std::endl;
   return stream;
 }
 

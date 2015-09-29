@@ -61,7 +61,7 @@ main(int argc, char** argv)
   MergeParameters parameters;
   std::string index_name, increment_name, output_name, pattern_name;
 
-  while((c = getopt(argc, argv, "b:m:r:s:t:v:")) != -1)
+  while((c = getopt(argc, argv, "b:m:r:s:t:d:v:")) != -1)
   {
     switch(c)
     {
@@ -79,6 +79,9 @@ main(int argc, char** argv)
       break;
     case 't':
       parameters.setT(std::stoul(optarg));
+      break;
+    case 'd':
+      parameters.setTemp(optarg);
       break;
     case 'v':
       pattern_name = optarg; verify = true;
@@ -179,17 +182,19 @@ printUsage()
   std::cerr << std::endl;
 
   std::cerr << "Options:" << std::endl;
-  std::cerr << "  -b N         Set thread buffer size to N megabytes / thread (default "
+  std::cerr << "  -b N          Set thread buffer size to N megabytes / thread (default: "
             << MergeParameters::defaultTB() << ")" << std::endl;
-  std::cerr << "  -m N         Set the number of merge buffers to N (default "
+  std::cerr << "  -m N          Set the number of merge buffers to N (default: "
             << MergeParameters::defaultMB() << ")" << std::endl;
-  std::cerr << "  -r N         Set run buffer size to N megabytes / thread (default "
+  std::cerr << "  -r N          Set run buffer size to N megabytes / thread (default: "
             << MergeParameters::defaultRB() << ")" << std::endl;
-  std::cerr << "  -s N         Set the number of sequence blocks to N (default "
+  std::cerr << "  -s N          Set the number of sequence blocks to N (default: "
             << MergeParameters::defaultSB() << " / thread)" << std::endl;
-  std::cerr << "  -t N         Use N parallel threads (default " << MergeParameters::defaultT()
+  std::cerr << "  -t N          Use N parallel threads (default: " << MergeParameters::defaultT()
             << " on this system)" << std::endl;
-  std::cerr << "  -v filename  Verify by querying with patterns from the given file" << std::endl;
+  std::cerr << std::endl;
+  std::cerr << "  -d directory  Use the given directory for temporary files (default: .)" << std::endl;
+  std::cerr << "  -v filename   Verify by querying with patterns from the given file" << std::endl;
   std::cerr << std::endl;
 }
 

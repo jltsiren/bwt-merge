@@ -21,6 +21,7 @@ There are three tools in the package:
 * `-m B` sets the number of **merge buffers** to *N* (default 5). The merge buffers are global and numbered from *0* to *N-1*. When a thread buffer becomes full, its contents are merged with one or more merge buffers. Merge buffer *i* contains *2^i* thread buffers. If there is no room in the merge buffers, all *2^N* thread buffers are merged and written to disk.
 * `-t N` sets the number of **threads** to *N*. The default is the maximum number of threads OpenMP is allowed to use.
 * `-s N` sets the number of **sequence blocks** to *N* (default 4 per thread). Each block consists of roughly the same number of sequences, and the blocks are assigned dynamically to individual threads.
+* `-d directory` sets the **temporary directory** (default: working directory).
 * `-v patterns` **verifies** the merged BWT by querying it with patterns and comparing the results with those from the inputs. File `patterns` contains one pattern per line.
 
 ## BWT file formats
@@ -100,6 +101,10 @@ As this tool merges existing BWTs, it is (insert, static).
 There are also other algorithms for building the BWT for large read collections They are based on partitioning the suffixes, sorting each of the partitions separately, and building the BWT directly.
 
 ## Version history
+
+### Current version
+
+* `bwt_merge`: Adjustable temp directory.
 
 ### Version 0.2.1
 

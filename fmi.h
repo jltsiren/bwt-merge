@@ -51,10 +51,13 @@ struct MergeParameters
   const static size_type MERGE_BUFFERS = 5;
   const static size_type BLOCKS_PER_THREAD = 4;
 
+  const static std::string DEFAULT_TEMP_DIR;  // .
+  const static std::string TEMP_FILE_PREFIX;  // .bwtmerge
+
   MergeParameters();
   void sanitize();
 
-  // Default sizes for the buffers in megabytes.
+  // Default sizes for the buffers are in megabytes.
   inline static double defaultRB() { return inMegabytes(RUN_BUFFER_SIZE * sizeof(run_type)); }
   inline static double defaultTB() { return inMegabytes(THREAD_BUFFER_SIZE); }
   inline static size_type defaultMB() { return MERGE_BUFFERS; }
@@ -67,9 +70,13 @@ struct MergeParameters
   inline void setT(size_type n)   { this->threads = n; }
   inline void setSB(size_type n)  { this->sequence_blocks = n; }
 
+  void setTemp(const std::string& directory);
+  std::string tempPrefix() const;
+
   size_type run_buffer_size, thread_buffer_size;
   size_type merge_buffers;
   size_type threads, sequence_blocks;
+  std::string temp_dir;
 };
 
 std::ostream& operator<< (std::ostream& stream, const MergeParameters& parameters);
