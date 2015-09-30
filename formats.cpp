@@ -306,9 +306,9 @@ SGAFormat::read(std::ifstream& in, BlockArray& data, sdsl::int_vector<64>& count
 
   SGAData::code_type buffer[MEGABYTE];
   RunBuffer run_buffer;
-  for(size_type offset = 0; offset < header.runs; offset += MEGABYTE)
+  for(size_type offset = 0; offset < header.bytes; offset += MEGABYTE)
   {
-    size_type bytes = std::min(MEGABYTE, header.runs - offset);
+    size_type bytes = std::min(MEGABYTE, header.bytes - offset);
     in.read((char*)buffer, bytes);
     for(size_type i = 0; i < bytes; i++)
     {
@@ -328,16 +328,24 @@ void
 SGAFormat::write(std::ofstream& out, const BlockArray& data, const NativeHeader& info)
 {
   SGAHeader header; header.bases = info.bases; header.sequences = info.sequences;
-  size_type rle_pos = 0;
-  while(rle_pos < data.size())
+  #pragma omp parallel for schedule(static)
+  for(size_type block = 0; block < data.blocks(); block++)
   {
-    range_type run = Run::read(data, rle_pos);
-    header.runs += (run.second + SGAData::MAX_RUN - 1) / SGAData::MAX_RUN;
+    size_type rle_pos = block * BlockArray::BLOCK_SIZE;
+    size_type limit = std::min(data.size(), (block + 1) * BlockArray::BLOCK_SIZE);
+    size_type block_runs = 0;
+    while(rle_pos < limit)
+    {
+      range_type run = Run::read(data, rle_pos);
+      header.bytes += (run.second + SGAData::MAX_RUN - 1) / SGAData::MAX_RUN;
+    }
+    #pragma omp atomic
+    header.bytes += block_runs;
   }
   header.write(out);
 
-  rle_pos = 0;
-  std::vector<SGAData::code_type> buffer;
+  size_type rle_pos = 0;
+  std::vector<SGAData::code_type> buffer; buffer.reserve(MEGABYTE);
   while(rle_pos < data.size())
   {
     range_type run = Run::read(data, rle_pos);
@@ -408,7 +416,7 @@ std::ostream& operator<<(std::ostream& stream, const NativeHeader& header)
 //------------------------------------------------------------------------------
 
 SGAHeader::SGAHeader() :
-  tag(DEFAULT_TAG), sequences(0), bases(0), runs(0), flag(DEFAULT_FLAG)
+  tag(DEFAULT_TAG), sequences(0), bases(0), bytes(0), flags(DEFAULT_FLAGS)
 {
 }
 
@@ -417,8 +425,8 @@ SGAHeader::SGAHeader(std::istream& in)
   sdsl::read_member(this->tag, in);
   sdsl::read_member(this->sequences, in);
   sdsl::read_member(this->bases, in);
-  sdsl::read_member(this->runs, in);
-  sdsl::read_member(this->flag, in);
+  sdsl::read_member(this->bytes, in);
+  sdsl::read_member(this->flags, in);
 }
 
 void
@@ -427,20 +435,20 @@ SGAHeader::write(std::ostream& out) const
   sdsl::write_member(this->tag, out);
   sdsl::write_member(this->sequences, out);
   sdsl::write_member(this->bases, out);
-  sdsl::write_member(this->runs, out);
-  sdsl::write_member(this->flag, out);
+  sdsl::write_member(this->bytes, out);
+  sdsl::write_member(this->flags, out);
 }
 
 bool
 SGAHeader::check() const
 {
-  return (this->tag == DEFAULT_TAG && this->flag == DEFAULT_FLAG);
+  return (this->tag == DEFAULT_TAG && this->flags == DEFAULT_FLAGS);
 }
 
 std::ostream& operator<<(std::ostream& stream, const SGAHeader& header)
 {
   return stream << "SGA format: " << header.sequences << " sequences, "
-                << header.bases << " bases, " << header.runs << " runs";
+                << header.bases << " bases, " << header.bytes << " bytes";
 }
 
 //------------------------------------------------------------------------------

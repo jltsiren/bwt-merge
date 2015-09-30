@@ -104,6 +104,7 @@ There are also other algorithms for building the BWT for large read collections 
 
 ### Current version
 
+* `bwt_convert`: Faster writing in SGA format.
 * `bwt_merge`: Adjustable temp directory.
 
 ### Version 0.2.1
@@ -128,6 +129,8 @@ There are also other algorithms for building the BWT for large read collections 
 
 ## Future work
 
+* Option to load the BWT into a single array to speed up queries.
+* New query: extract a sequence based on the lexicographic rank of a suffix.
 * Multithreaded merging of the rank array.
 * Input/output in any supported BWT format.
 * Different options for where the sequences from `input2` are inserted:

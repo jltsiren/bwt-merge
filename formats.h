@@ -154,11 +154,11 @@ struct SGAHeader
   uint16_t tag;
   uint64_t sequences;
   uint64_t bases;
-  uint64_t runs;
-  uint32_t flag;
+  uint64_t bytes;
+  uint32_t flags;
 
   const static uint16_t DEFAULT_TAG = 0xCACA;
-  const static uint32_t DEFAULT_FLAG = 0;
+  const static uint32_t DEFAULT_FLAGS = 0;
 
   SGAHeader();
   SGAHeader(std::istream& in);
