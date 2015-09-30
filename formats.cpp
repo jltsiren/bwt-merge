@@ -337,7 +337,7 @@ SGAFormat::write(std::ofstream& out, const BlockArray& data, const NativeHeader&
     while(rle_pos < limit)
     {
       range_type run = Run::read(data, rle_pos);
-      header.bytes += (run.second + SGAData::MAX_RUN - 1) / SGAData::MAX_RUN;
+      block_runs += (run.second + SGAData::MAX_RUN - 1) / SGAData::MAX_RUN;
     }
     #pragma omp atomic
     header.bytes += block_runs;
