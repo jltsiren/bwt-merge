@@ -111,8 +111,6 @@ public:
 
 //------------------------------------------------------------------------------
 
-  NativeHeader getHeader() const;
-
   template<class Format>
   void serialize(const std::string& filename) const
   {
@@ -122,7 +120,7 @@ public:
                 << " is not compatible with " << alphabetName(identifyAlphabet(this->alpha))
                 << " alphabets!" << std::endl;
     }
-    this->bwt.serialize<Format>(filename, this->getHeader());
+    this->bwt.serialize<Format>(filename);
   }
 
   template<class Format>
@@ -132,6 +130,7 @@ public:
     this->bwt.load<Format>(filename, counts);
     Alphabet temp = createAlphabet(Format::order());
     this->alpha = Alphabet(counts, temp.char2comp, temp.comp2char);
+    this->bwt.header.setOrder(identifyAlphabet(this->alpha));
   }
 
 //------------------------------------------------------------------------------

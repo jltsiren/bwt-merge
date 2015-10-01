@@ -75,7 +75,7 @@ public:
 //------------------------------------------------------------------------------
 
   template<class Format>
-  void serialize(const std::string& filename, NativeHeader header) const
+  void serialize(const std::string& filename) const
   {
     std::ofstream out(filename.c_str(), std::ios_base::binary);
     if(!out)
@@ -83,7 +83,7 @@ public:
       std::cerr << "BWT::serialize(): Cannot open output file " << filename << std::endl;
       return;
     }
-    Format::write(out, this->data, header);
+    Format::write(out, this->data, this->header);
     out.close();
   }
 
@@ -99,16 +99,15 @@ public:
     Format::read(in, this->data, counts);
     in.close();
 
-    size_type total_size = 0;
-    for(size_type c = 0; c < counts.size(); c++) { total_size += counts[c]; }
-    this->build(total_size);
+    this->setHeader(counts);
+    this->build();
   }
 
 //------------------------------------------------------------------------------
 
-  inline size_type size() const { return this->block_boundaries.size(); }
-  inline size_type sequences() const { return this->samples[0].sum(); }
-  inline size_type bytes() const { return this->data.size(); }
+  inline size_type size() const { return this->header.bases; }
+  inline size_type sequences() const { return this->header.sequences; }
+  inline size_type bytes() const { return this->header.bytes; }
   inline size_type count(comp_type c) const { return this->samples[c].sum(); }
 
   size_type rank(size_type i, comp_type c) const;
@@ -170,6 +169,7 @@ public:
 
 //------------------------------------------------------------------------------
 
+  NativeHeader                     header;
   BlockArray                       data;
   CumulativeArray                  samples[SIGMA];
 
@@ -181,8 +181,10 @@ private:
   void copy(const BWT& source);
   void setVectors();
 
+  void setHeader(const sdsl::int_vector<64>& counts);
+
   // Builds/destroys the rank/select structures.
-  void build(size_type total_size);
+  void build();
   void destroy();
 };  // class BWT
 

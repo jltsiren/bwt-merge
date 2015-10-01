@@ -104,6 +104,7 @@ There are also other algorithms for building the BWT for large read collections 
 
 ### Current version
 
+* Changes to the header of the native BWT format.
 * `bwt_convert`: Faster writing in SGA format.
 * `bwt_merge`: Adjustable temp directory.
 
@@ -132,12 +133,13 @@ There are also other algorithms for building the BWT for large read collections 
 * Option to load the BWT into a single array to speed up queries.
 * New query: extract a sequence based on the lexicographic rank of a suffix.
 * Multithreaded merging of the rank array.
-* Input/output in any supported BWT format.
-* Different options for where the sequences from `input2` are inserted:
+* `bwt_merge`: Input/output in any supported BWT format.
+* `bwt_convert`, `bwt_merge`: Input from stdin / output to stdout.
+* `bwt_merge`: Different options for where the sequences from `input2` are inserted:
   * after the sequences from `input1` (current behavior)
   * in reverse lexicographic order
   * by position in the reference
-* An option to remove duplicate sequences.
+* `bwt_merge`: Option to remove duplicate sequences.
 * `bwt_convert`: Build rank/select only when necessary.
 * Documentation in the wiki.
 

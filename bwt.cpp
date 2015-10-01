@@ -50,6 +50,8 @@ BWT::~BWT()
 void
 BWT::copy(const BWT& source)
 {
+  this->header = source.header;
+
   this->data = source.data;
   for(size_type c = 0; c < SIGMA; c++) { this->samples[c] = source.samples[c]; }
 
@@ -71,6 +73,7 @@ BWT::swap(BWT& source)
 {
   if(this != &source)
   {
+    std::swap(this->header, source.header);
     this->data.swap(source.data);
     for(size_type c = 0; c < SIGMA; c++) { this->samples[c].swap(source.samples[c]); }
     this->block_boundaries.swap(source.block_boundaries);
@@ -91,6 +94,7 @@ BWT::operator=(BWT&& source)
 {
   if(this != &source)
   {
+    this->header = std::move(source.header);
     this->data = std::move(source.data);
     for(size_type c = 0; c < SIGMA; c++) { this->samples[c] = std::move(source.samples[c]); }
 
@@ -103,10 +107,12 @@ BWT::operator=(BWT&& source)
 }
 
 BWT::size_type
-BWT::serialize(std::ostream& out, sdsl::structure_tree_node* s, std::string name) const
+BWT::serialize(std::ostream& out, sdsl::structure_tree_node* v, std::string name) const
 {
-  sdsl::structure_tree_node* child = sdsl::structure_tree::add_child(s, name, sdsl::util::class_name(*this));
+  sdsl::structure_tree_node* child = sdsl::structure_tree::add_child(v, name, sdsl::util::class_name(*this));
   size_type written_bytes = 0;
+
+  written_bytes += this->header.serialize(out, child, "header");
   written_bytes += this->data.serialize(out, child, "data");
   for(size_type c = 0; c < SIGMA; c++)
   {
@@ -116,6 +122,7 @@ BWT::serialize(std::ostream& out, sdsl::structure_tree_node* s, std::string name
   written_bytes += this->block_boundaries.serialize(out, child, "block_boundaries");
   written_bytes += this->block_rank.serialize(out, child, "block_rank");
   written_bytes += this->block_select.serialize(out, child, "block_select");
+
   sdsl::structure_tree::add_size(child, written_bytes);
   return written_bytes;
 }
@@ -123,6 +130,13 @@ BWT::serialize(std::ostream& out, sdsl::structure_tree_node* s, std::string name
 void
 BWT::load(std::istream& in)
 {
+  this->header.load(in);
+  if(!(this->header.check()))
+  {
+    std::cerr << "BWT::load(): Invalid header!" << std::endl;
+    std::exit(EXIT_FAILURE);
+  }
+
   this->data.load(in);
   for(size_type c = 0; c < SIGMA; c++) { this->samples[c].load(in); }
 
@@ -139,7 +153,6 @@ BWT::BWT(BWT& a, BWT& b, RankArray& ra)
   double start = readTimer();
 #endif
 
-  size_type total_size = a.size() + b.size();
   a.destroy(); b.destroy();
   ra.open();
 
@@ -188,7 +201,11 @@ BWT::BWT(BWT& a, BWT& b, RankArray& ra)
   std::cerr << "bwt_merge: BWTs merged in " << (midpoint - start) << " seconds" << std::endl;
 #endif
 
-  this->build(total_size);
+  this->header.sequences = a.sequences() + b.sequences();
+  this->header.bases = a.size() + b.size();
+  this->header.bytes = this->data.size();
+  this->header.setOrder(a.header.order());
+  this->build();
 
 #ifdef VERBOSE_STATUS_INFO
   double seconds = readTimer() - midpoint;
@@ -349,14 +366,23 @@ BWT::inverse_select(size_type i) const
 //------------------------------------------------------------------------------
 
 void
-BWT::build(size_type total_size)
+BWT::setHeader(const sdsl::int_vector<64>& counts)
+{
+  this->header.sequences = counts[0];
+  this->header.bases = 0;
+  for(size_type c = 0; c < counts.size(); c++) { this->header.bases += counts[c]; }
+  this->header.bytes = this->data.size();
+}
+
+void
+BWT::build()
 {
   size_type blocks = (this->bytes() + SAMPLE_RATE - 1) / SAMPLE_RATE;
-  sdsl::int_vector<0> block_ends(blocks, 0, bit_length(total_size));
+  sdsl::int_vector<0> block_ends(blocks, 0, bit_length(this->size()));
   sdsl::int_vector<0> counts[SIGMA];
   for(size_type c = 0; c < SIGMA; c++)
   {
-    counts[c] = sdsl::int_vector<0>(blocks, 0, bit_length(total_size));
+    counts[c] = sdsl::int_vector<0>(blocks, 0, bit_length(this->size()));
   }
 
   // Scan the BWT and determine block boundaries and ranks.

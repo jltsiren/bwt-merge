@@ -85,13 +85,10 @@ FMI::operator=(FMI&& source)
 }
 
 FMI::size_type
-FMI::serialize(std::ostream& out, sdsl::structure_tree_node* s, std::string name) const
+FMI::serialize(std::ostream& out, sdsl::structure_tree_node* v, std::string name) const
 {
-  sdsl::structure_tree_node* child = sdsl::structure_tree::add_child(s, name, sdsl::util::class_name(*this));
+  sdsl::structure_tree_node* child = sdsl::structure_tree::add_child(v, name, sdsl::util::class_name(*this));
   size_type written_bytes = 0;
-
-  NativeHeader header = this->getHeader();
-  header.write(out); written_bytes += sizeof(NativeHeader);
 
   written_bytes += this->bwt.serialize(out, child, "bwt");
   written_bytes += this->alpha.serialize(out, child, "alpha");
@@ -103,28 +100,11 @@ FMI::serialize(std::ostream& out, sdsl::structure_tree_node* s, std::string name
 void
 FMI::load(std::istream& in)
 {
-  NativeHeader header(in);
-  if(!(header.check()))
-  {
-    std::cerr << "FMI::load(): Invalid header!" << std::endl;
-    std::exit(EXIT_FAILURE);
-  }
-
   this->bwt.load(in);
   this->alpha.load(in);
 }
 
 //------------------------------------------------------------------------------
-
-NativeHeader
-FMI::getHeader() const
-{
-  NativeHeader header;
-  header.sequences = this->sequences();
-  header.bases = this->size();
-  header.setOrder(identifyAlphabet(this->alpha));
-  return header;
-}
 
 template<>
 void

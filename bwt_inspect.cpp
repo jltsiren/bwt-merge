@@ -79,7 +79,7 @@ bool
 inspect(std::ifstream& in, size_type& total_sequences, size_type& total_bases)
 {
   in.seekg(0);
-  HeaderFormat header(in);
+  HeaderFormat header; header.load(in);
   if(!(header.check())) { return false; }
 
   total_sequences += header.sequences; total_bases += header.bases;

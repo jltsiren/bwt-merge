@@ -50,14 +50,15 @@ struct NativeHeader
   uint32_t flags;
   uint64_t sequences;
   uint64_t bases;
+  uint64_t bytes;
 
   const static uint32_t DEFAULT_TAG = 0x54574221;
   const static uint32_t ALPHABET_MASK = 0xFF;
 
   NativeHeader();
-  NativeHeader(std::istream& in);
 
-  void write(std::ostream& out) const;
+  size_type serialize(std::ostream& out, sdsl::structure_tree_node* v = nullptr, std::string name = "") const;
+  void load(std::istream& in);
   bool check() const;
 
   AlphabeticOrder order() const;
@@ -161,9 +162,9 @@ struct SGAHeader
   const static uint32_t DEFAULT_FLAGS = 0;
 
   SGAHeader();
-  SGAHeader(std::istream& in);
 
-  void write(std::ostream& out) const;
+  size_type serialize(std::ostream& out, sdsl::structure_tree_node* v = nullptr, std::string name = "") const;
+  void load(std::istream& in);
   bool check() const;
 };
 

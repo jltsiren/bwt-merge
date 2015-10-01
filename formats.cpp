@@ -297,7 +297,7 @@ SGAFormat::read(std::ifstream& in, BlockArray& data, sdsl::int_vector<64>& count
   data.clear();
   counts = sdsl::int_vector<64>(SGAData::SIGMA, 0);
 
-  SGAHeader header(in);
+  SGAHeader header; header.load(in);
   if(!(header.check()))
   {
     std::cerr << "SGAFormat::load(): Invalid header!" << std::endl;
@@ -342,7 +342,7 @@ SGAFormat::write(std::ofstream& out, const BlockArray& data, const NativeHeader&
     #pragma omp atomic
     header.bytes += block_runs;
   }
-  header.write(out);
+  header.serialize(out);
 
   size_type rle_pos = 0;
   std::vector<SGAData::code_type> buffer; buffer.reserve(MEGABYTE);
@@ -367,25 +367,32 @@ SGAFormat::write(std::ofstream& out, const BlockArray& data, const NativeHeader&
 //------------------------------------------------------------------------------
 
 NativeHeader::NativeHeader() :
-  tag(DEFAULT_TAG), flags(0), sequences(0), bases(0)
+  tag(DEFAULT_TAG), flags(0), sequences(0), bases(0), bytes(0)
 {
 }
 
-NativeHeader::NativeHeader(std::istream& in)
+size_type
+NativeHeader::serialize(std::ostream& out, sdsl::structure_tree_node* v, std::string name) const
+{
+  sdsl::structure_tree_node* child = sdsl::structure_tree::add_child(v, name, sdsl::util::class_name(*this));
+  size_type written_bytes = 0;
+  written_bytes += sdsl::write_member(this->tag, out, child, "tag");
+  written_bytes += sdsl::write_member(this->flags, out, child, "flags");
+  written_bytes += sdsl::write_member(this->sequences, out, child, "sequences");
+  written_bytes += sdsl::write_member(this->bases, out, child, "bases");
+  written_bytes += sdsl::write_member(this->bytes, out, child, "bytes");
+  sdsl::structure_tree::add_size(child, written_bytes);
+  return written_bytes;
+}
+
+void
+NativeHeader::load(std::istream& in)
 {
   sdsl::read_member(this->tag, in);
   sdsl::read_member(this->flags, in);
   sdsl::read_member(this->sequences, in);
   sdsl::read_member(this->bases, in);
-}
-
-void
-NativeHeader::write(std::ostream& out) const
-{
-  sdsl::write_member(this->tag, out);
-  sdsl::write_member(this->flags, out);
-  sdsl::write_member(this->sequences, out);
-  sdsl::write_member(this->bases, out);
+  sdsl::read_member(this->bytes, in);
 }
 
 bool
@@ -410,7 +417,7 @@ NativeHeader::setOrder(AlphabeticOrder ao)
 std::ostream& operator<<(std::ostream& stream, const NativeHeader& header)
 {
   return stream << "Native format: " << header.sequences << " sequences, " << header.bases << " bases, "
-                << alphabetName(header.order()) << " alphabet";
+                << header.bytes << " bytes, " << alphabetName(header.order()) << " alphabet";
 }
 
 //------------------------------------------------------------------------------
@@ -420,23 +427,28 @@ SGAHeader::SGAHeader() :
 {
 }
 
-SGAHeader::SGAHeader(std::istream& in)
+size_type
+SGAHeader::serialize(std::ostream& out, sdsl::structure_tree_node* v, std::string name) const
+{
+  sdsl::structure_tree_node* child = sdsl::structure_tree::add_child(v, name, sdsl::util::class_name(*this));
+  size_type written_bytes = 0;
+  sdsl::write_member(this->tag, out, child, "tag");
+  sdsl::write_member(this->sequences, out, child, "sequences");
+  sdsl::write_member(this->bases, out, child, "bases");
+  sdsl::write_member(this->bytes, out, child, "bytes");
+  sdsl::write_member(this->flags, out, child, "flags");
+  sdsl::structure_tree::add_size(child, written_bytes);
+  return written_bytes;
+}
+
+void
+SGAHeader::load(std::istream& in)
 {
   sdsl::read_member(this->tag, in);
   sdsl::read_member(this->sequences, in);
   sdsl::read_member(this->bases, in);
   sdsl::read_member(this->bytes, in);
   sdsl::read_member(this->flags, in);
-}
-
-void
-SGAHeader::write(std::ostream& out) const
-{
-  sdsl::write_member(this->tag, out);
-  sdsl::write_member(this->sequences, out);
-  sdsl::write_member(this->bases, out);
-  sdsl::write_member(this->bytes, out);
-  sdsl::write_member(this->flags, out);
 }
 
 bool
