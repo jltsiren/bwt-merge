@@ -367,7 +367,7 @@ SGAFormat::write(std::ofstream& out, const BlockArray& data, const NativeHeader&
 //------------------------------------------------------------------------------
 
 NativeHeader::NativeHeader() :
-  tag(DEFAULT_TAG), flags(0), sequences(0), bases(0), bytes(0)
+  tag(DEFAULT_TAG), flags(0), sequences(0), bases(0)
 {
 }
 
@@ -380,7 +380,6 @@ NativeHeader::serialize(std::ostream& out, sdsl::structure_tree_node* v, std::st
   written_bytes += sdsl::write_member(this->flags, out, child, "flags");
   written_bytes += sdsl::write_member(this->sequences, out, child, "sequences");
   written_bytes += sdsl::write_member(this->bases, out, child, "bases");
-  written_bytes += sdsl::write_member(this->bytes, out, child, "bytes");
   sdsl::structure_tree::add_size(child, written_bytes);
   return written_bytes;
 }
@@ -392,7 +391,6 @@ NativeHeader::load(std::istream& in)
   sdsl::read_member(this->flags, in);
   sdsl::read_member(this->sequences, in);
   sdsl::read_member(this->bases, in);
-  sdsl::read_member(this->bytes, in);
 }
 
 bool
@@ -417,7 +415,7 @@ NativeHeader::setOrder(AlphabeticOrder ao)
 std::ostream& operator<<(std::ostream& stream, const NativeHeader& header)
 {
   return stream << "Native format: " << header.sequences << " sequences, " << header.bases << " bases, "
-                << header.bytes << " bytes, " << alphabetName(header.order()) << " alphabet";
+                << alphabetName(header.order()) << " alphabet";
 }
 
 //------------------------------------------------------------------------------

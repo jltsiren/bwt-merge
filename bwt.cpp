@@ -203,7 +203,6 @@ BWT::BWT(BWT& a, BWT& b, RankArray& ra)
 
   this->header.sequences = a.sequences() + b.sequences();
   this->header.bases = a.size() + b.size();
-  this->header.bytes = this->data.size();
   this->header.setOrder(a.header.order());
   this->build();
 
@@ -371,7 +370,6 @@ BWT::setHeader(const sdsl::int_vector<64>& counts)
   this->header.sequences = counts[0];
   this->header.bases = 0;
   for(size_type c = 0; c < counts.size(); c++) { this->header.bases += counts[c]; }
-  this->header.bytes = this->data.size();
 }
 
 void

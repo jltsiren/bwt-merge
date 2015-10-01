@@ -104,7 +104,6 @@ There are also other algorithms for building the BWT for large read collections 
 
 ### Current version
 
-* Changes to the header of the native BWT format.
 * `bwt_convert`: Faster writing in SGA format.
 * `bwt_merge`: Adjustable temp directory.
 

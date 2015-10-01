@@ -50,7 +50,6 @@ struct NativeHeader
   uint32_t flags;
   uint64_t sequences;
   uint64_t bases;
-  uint64_t bytes;
 
   const static uint32_t DEFAULT_TAG = 0x54574221;
   const static uint32_t ALPHABET_MASK = 0xFF;

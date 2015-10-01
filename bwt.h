@@ -107,7 +107,7 @@ public:
 
   inline size_type size() const { return this->header.bases; }
   inline size_type sequences() const { return this->header.sequences; }
-  inline size_type bytes() const { return this->header.bytes; }
+  inline size_type bytes() const { return this->data.size(); }
   inline size_type count(comp_type c) const { return this->samples[c].sum(); }
 
   size_type rank(size_type i, comp_type c) const;
