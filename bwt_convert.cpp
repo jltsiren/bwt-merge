@@ -102,15 +102,6 @@ main(int argc, char** argv)
 
 //------------------------------------------------------------------------------
 
-template<class Format>
-void
-printFormat(std::ostream& stream)
-{
-  std::string padding;
-  if(Format::tag.length() < 15) { padding = std::string(15 - Format::tag.length(), ' '); }
-  stream << "  " << Format::tag << padding << Format::name << std::endl;
-}
-
 void
 printUsage()
 {

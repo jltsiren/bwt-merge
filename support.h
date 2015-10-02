@@ -575,13 +575,25 @@ void RLIterator<BlockArray>::read();
 
 //------------------------------------------------------------------------------
 
-struct RankArray
+class RankArray
 {
+public:
   typedef RLArray<sdsl::int_vector_buffer<8>> array_type;
+  typedef array_type::run_type                run_type;
   typedef array_type::iterator                iterator;
 
   RankArray();
   ~RankArray();
+
+  void open();
+  void close();
+
+  /*
+    Iterator operations.
+  */
+  inline run_type operator* () const { return *(this->iterators[0]); }
+  inline void operator++ () { ++(this->iterators[0]); this->down(0); }
+  inline bool end() const { return this->iterators[0].end(); }
 
   std::vector<std::string> filenames;
   std::vector<size_type>   run_counts;
@@ -590,12 +602,11 @@ struct RankArray
   std::vector<array_type> inputs;
   std::vector<iterator>   iterators;
 
+private:
+  /*
+    Heap operations.
+  */
   inline size_type size() const { return this->filenames.size(); }
-
-  void open();
-  void close();
-
-  // Heap operations.
   inline static size_type parent(size_type i) { return (i - 1) / 2; }
   inline static size_type left(size_type i) { return 2 * i + 1; }
   inline static size_type right(size_type i) { return 2 * i + 2; }
@@ -619,7 +630,9 @@ struct RankArray
 
   void heapify();
 
-private:
+  /*
+    Not to be used.
+  */
   RankArray(const RankArray&);
   RankArray(RankArray&&);
   RankArray& operator= (const RankArray&);

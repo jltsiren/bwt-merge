@@ -37,6 +37,9 @@ const size_type RUN_BUFFER_SIZE = MEGABYTE;
 
 void printUsage();
 
+/*
+  The number of occurrences for each pattern will be added to the results.
+*/
 void verifyFMI(FMI& fmi, const std::string& name,
   const std::vector<std::string>& patterns, std::vector<size_type>& results);
 
@@ -122,39 +125,39 @@ main(int argc, char** argv)
   std::cout << std::endl;
 
   std::vector<std::string> patterns;
+  std::vector<size_type> pre_results, post_results;
   if(verify)
   {
     size_type chars = readRows(pattern_name, patterns, true);
+    pre_results = std::vector<size_type>(patterns.size(), 0);
+    post_results = std::vector<size_type>(patterns.size(), 0);
     std::cout << "Read " << patterns.size() << " patterns of total length " << chars << std::endl;
     std::cout << std::endl;
   }
 
   FMI index;
-  std::vector<size_type> index_results;
   index.load<NativeFormat>(index_name);
-  verifyFMI(index, "BWT 1", patterns, index_results);
+  verifyFMI(index, "BWT 1", patterns, pre_results);
 
   FMI increment;
-  std::vector<size_type> increment_results;
   increment.load<NativeFormat>(increment_name);
-  verifyFMI(increment, "BWT 2", patterns, increment_results);
+  verifyFMI(increment, "BWT 2", patterns, pre_results);
 
 #ifdef VERBOSE_STATUS_INFO
   std::cerr << "bwt_merge: Memory usage before merging: " << inGigabytes(memoryUsage()) << " GB" << std::endl;
 #endif
 
   FMI merged;
-  std::vector<size_type> merged_results;
   merge(merged, index, increment, parameters);
   merged.serialize<NativeFormat>(output_name);
-  verifyFMI(merged, "Merged", patterns, merged_results);
+  verifyFMI(merged, "Merged", patterns, post_results);
 
   if(verify)
   {
     size_type errors = 0;
     for(size_type i = 0; i < patterns.size(); i++)
     {
-      if(merged_results[i] != index_results[i] + increment_results[i]) { errors++; }
+      if(pre_results[i] != post_results[i]) { errors++; }
     }
     if(errors > 0)
     {
@@ -206,7 +209,6 @@ verifyFMI(FMI& fmi, const std::string& name,
 {
   size_type chars = 0;
   for(size_type i = 0; i < patterns.size(); i++) { chars += patterns[i].length(); }
-  results.resize(patterns.size());
 
   printSize(name, sdsl::size_in_bytes(fmi), fmi.size());
 
@@ -217,7 +219,7 @@ verifyFMI(FMI& fmi, const std::string& name,
     for(size_type i = 0; i < patterns.size(); i++)
     {
       range_type range = fmi.find(patterns[i]);
-      results[i] = Range::length(range);
+      results[i] += Range::length(range);
       if(!(Range::empty(range))) { found++; matches += Range::length(range); }
     }
     double seconds = readTimer() - start;

@@ -22,6 +22,11 @@
   SOFTWARE.
 */
 
+#include <time.h>
+
+#include <chrono>
+#include <thread>
+
 #include "bwt.h"
 
 namespace bwtmerge
@@ -147,6 +152,155 @@ BWT::load(std::istream& in)
 
 //------------------------------------------------------------------------------
 
+struct RABuffer
+{
+  typedef RankArray::run_type run_type;
+
+  const static size_type BUFFER_SIZE = MEGABYTE;  // Runs.
+
+  omp_lock_t            lock;
+  bool                  finished;
+  std::vector<run_type> buffer;
+
+  RABuffer()
+  {
+    omp_init_lock(&(this->lock));
+    this->finished = false;
+  }
+
+  ~RABuffer()
+  {
+    omp_destroy_lock(&(this->lock));
+  }
+
+  void get(std::vector<run_type>& out_buffer, bool& last)
+  {
+    omp_set_lock(&(this->lock));
+    if(!(this->buffer.empty())) { out_buffer.swap(this->buffer); }
+    last = this->finished;
+    omp_unset_lock(&(this->lock));
+  }
+
+  void add(std::vector<run_type>& in_buffer, bool last)
+  {
+    omp_set_lock(&(this->lock));
+    if(this->buffer.empty())
+    {
+      this->buffer.swap(in_buffer);
+      this->finished = last;
+    }
+    omp_unset_lock(&(this->lock));
+  }
+};
+
+//------------------------------------------------------------------------------
+
+inline void
+delay(size_type ms)
+{
+  std::this_thread::sleep_for(std::chrono::milliseconds(ms));
+}
+
+void
+mergeRA(RankArray& ra, RABuffer& ra_buffer)
+{
+  ra.open();
+  size_type delays = 0;
+  std::vector<RankArray::run_type> out_buffer;
+  out_buffer.reserve(RABuffer::BUFFER_SIZE);
+
+  while(!(ra.end()))
+  {
+    out_buffer.push_back(*ra); ++ra;
+    while(out_buffer.size() >= RABuffer::BUFFER_SIZE)
+    {
+      ra_buffer.add(out_buffer, ra.end());
+      if(!(out_buffer.empty())) { delays++; delay(1); }
+    }
+  }
+  while(out_buffer.size() > 0)
+  {
+    ra_buffer.add(out_buffer, ra.end());
+    if(!(out_buffer.empty())) { delays++; delay(1); }
+  }
+
+  ra.close();
+#ifdef VERBOSE_STATUS_INFO
+  #pragma omp critical
+  {
+    std::cerr << "mergeRA(): The buffer was full " << delays << " times." << std::endl;
+  }
+#endif
+}
+
+void
+mergeBWT(BWT& a, BWT& b, BWT& result, RABuffer& ra_buffer)
+{
+  std::vector<RABuffer::run_type> in_buffer;
+  RunBuffer out_buffer;
+  bool ra_finished = false;
+  size_type a_rle_pos = 0, b_rle_pos = 0;
+  size_type a_seq_pos = 0;
+  range_type a_run = Run::read(a.data, a_rle_pos); a.data.clearUntil(a_rle_pos);
+  range_type b_run = Run::read(b.data, b_rle_pos); b.data.clearUntil(b_rle_pos);
+  size_type delays = 0;
+
+  while(!ra_finished)
+  {
+    // Get the next buffer.
+    while(in_buffer.empty())
+    {
+      ra_buffer.get(in_buffer, ra_finished);
+      if(in_buffer.empty()) { delays++; delay(1); }
+    }
+
+    // Process the current buffer.
+    for(size_type i = 0; i < in_buffer.size(); i++)
+    {
+      RankArray::run_type curr = in_buffer[i];
+      while(a_seq_pos < curr.first)
+      {
+        size_type length = std::min(curr.first - a_seq_pos, a_run.second);
+        if(out_buffer.add(a_run.first, length)) { Run::write(result.data, out_buffer.run); }
+        a_run.second -= length; a_seq_pos += length;
+        if(a_run.second == 0 && a_rle_pos < a.data.size())
+        {
+          a_run = Run::read(a.data, a_rle_pos); a.data.clearUntil(a_rle_pos);
+        }
+      }
+      while(curr.second > 0)
+      {
+        size_type length = std::min(curr.second, b_run.second);
+        if(out_buffer.add(b_run.first, length)) { Run::write(result.data, out_buffer.run); }
+        b_run.second -= length; curr.second -= length;
+        if(b_run.second == 0 && b_rle_pos < b.data.size())
+        {
+          b_run = Run::read(b.data, b_rle_pos); b.data.clearUntil(b_rle_pos);
+        }
+      }
+    }
+    in_buffer.clear();
+  }
+
+  // Process the rest of a.
+  while(a_run.second > 0)
+  {
+    if(out_buffer.add(a_run)) { Run::write(result.data, out_buffer.run); }
+    if(a_rle_pos < a.data.size()) { a_run = Run::read(a.data, a_rle_pos); a.data.clearUntil(a_rle_pos); }
+    else { a_run.second = 0; }
+  }
+  out_buffer.flush(); Run::write(result.data, out_buffer.run);
+
+#ifdef VERBOSE_STATUS_INFO
+  #pragma omp critical
+  {
+    std::cerr << "mergeBWT(): The buffer was empty " << delays << " times." << std::endl;
+  }
+#endif
+}
+
+//------------------------------------------------------------------------------
+
 BWT::BWT(BWT& a, BWT& b, RankArray& ra)
 {
 #ifdef VERBOSE_STATUS_INFO
@@ -154,47 +308,22 @@ BWT::BWT(BWT& a, BWT& b, RankArray& ra)
 #endif
 
   a.destroy(); b.destroy();
-  ra.open();
+  RABuffer ra_buffer;
 
-  size_type a_rle_pos = 0, b_rle_pos = 0;
-  size_type a_seq_pos = 0;
-  range_type a_run = Run::read(a.data, a_rle_pos); a.data.clearUntil(a_rle_pos);
-  range_type b_run = Run::read(b.data, b_rle_pos); b.data.clearUntil(b_rle_pos);
-
-  RunBuffer buffer;
-  while(!(ra.iterators[0].end()))
+  #pragma omp parallel sections
   {
-    while(a_seq_pos < ra.iterators[0]->first)
+    // Producer
+    #pragma omp section
     {
-      size_type length = std::min(ra.iterators[0]->first - a_seq_pos, a_run.second);
-      if(buffer.add(a_run.first, length)) { Run::write(this->data, buffer.run); }
-      a_run.second -= length; a_seq_pos += length;
-      if(a_run.second == 0 && a_rle_pos < a.data.size())
-      {
-        a_run = Run::read(a.data, a_rle_pos); a.data.clearUntil(a_rle_pos);
-      }
-    }
-    while(ra.iterators[0]->second > 0)
-    {
-      size_type length = std::min(ra.iterators[0]->second, b_run.second);
-      if(buffer.add(b_run.first, length)) { Run::write(this->data, buffer.run); }
-      b_run.second -= length; ra.iterators[0]->second -= length;
-      if(b_run.second == 0 && b_rle_pos < b.data.size())
-      {
-        b_run = Run::read(b.data, b_rle_pos); b.data.clearUntil(b_rle_pos);
-      }
+      mergeRA(ra, ra_buffer);
     }
 
-    ++(ra.iterators[0]); ra.down(0);
+    // Consumer
+    #pragma omp section
+    {
+      mergeBWT(a, b, *this, ra_buffer);
+    }
   }
-  while(a_run.second > 0)
-  {
-    if(buffer.add(a_run)) { Run::write(this->data, buffer.run); }
-    if(a_rle_pos < a.data.size()) { a_run = Run::read(a.data, a_rle_pos); a.data.clearUntil(a_rle_pos); }
-    else { a_run.second = 0; }
-  }
-  buffer.flush(); Run::write(this->data, buffer.run);
-  ra.close();
 
 #ifdef VERBOSE_STATUS_INFO
   double midpoint = readTimer();

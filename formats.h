@@ -39,9 +39,6 @@ AlphabeticOrder identifyAlphabet(const Alphabet& alpha);
 std::string alphabetName(AlphabeticOrder order);
 bool compatible(const Alphabet& alpha, AlphabeticOrder order);
 
-void readPlain(std::ifstream& in, BlockArray& data, sdsl::int_vector<64>& counts, const Alphabet& alpha);
-void writePlain(std::ofstream& out, const BlockArray& data, const Alphabet& alpha);
-
 //------------------------------------------------------------------------------
 
 struct NativeHeader
@@ -146,6 +143,20 @@ struct SGAFormat
   const static std::string name;
   const static std::string tag;
 };
+
+//------------------------------------------------------------------------------
+
+void readPlain(std::ifstream& in, BlockArray& data, sdsl::int_vector<64>& counts, const Alphabet& alpha);
+void writePlain(std::ofstream& out, const BlockArray& data, const Alphabet& alpha);
+
+template<class Format>
+void
+printFormat(std::ostream& stream)
+{
+  std::string padding;
+  if(Format::tag.length() < 15) { padding = std::string(15 - Format::tag.length(), ' '); }
+  stream << "  " << Format::tag << padding << Format::name << std::endl;
+}
 
 //------------------------------------------------------------------------------
 
