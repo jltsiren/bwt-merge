@@ -37,7 +37,7 @@ void printUsage();
 int
 main(int argc, char** argv)
 {
-  if(argc < 3)
+  if(argc < 2)
   {
     printUsage();
     std::exit(EXIT_SUCCESS);
@@ -69,12 +69,12 @@ main(int argc, char** argv)
   if(optind < argc) { input_name = argv[optind]; }
   else
   {
-    std::cerr << "bwt_convert: Input file unspecified!" << std::endl;
+    std::cerr << "bwt_convert: Input file not specified" << std::endl;
   }
   if(optind + 1 < argc) { output_name = argv[optind + 1]; }
   else
   {
-    std::cerr << "bwt_convert: Output file unspecified!" << std::endl;
+    std::cerr << "bwt_convert: Output file not specified" << std::endl;
     std::exit(EXIT_FAILURE);
   }
 

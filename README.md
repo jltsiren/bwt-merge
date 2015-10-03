@@ -14,7 +14,7 @@ There are three tools in the package:
 
 `bwt_inspect input1 [input2 ...]` tries to identify the BWT formats of the input files. If successful, it will also display some basic information about the files. Only the native format and the SGA format are currently supported.
 
-`bwt_merge [options] input1 input2 output` reads the native format BWT files `input1` and `input2`, merges them, and writes the merged BWT to file `output` in the native format. The sequences from `input2` are inserted into `input1`, so `input2` should usually be the smaller of the two. There are several options:
+`bwt_merge [options] input1 input2 [input3 ...] output` reads the input BWT files in the native format, merges them, and writes the merged BWT to file `output` in the native format. The sequences from each input file are inserted after the sequences from the BWTs that have already been merged. In most cases, the input files should be given from the largest to the smallest. There are several options:
 
 * `-r N` sets the size of **run buffers** to *N* megabytes (default 128). The unsorted run buffers are thread-specific and contain 16-byte values.
 * `-b N` sets the size of **thread buffers** to *N* megabytes (default 512). When the run buffer becomes full, its contents are sorted, compressed, and merged with the thread buffer.
@@ -42,7 +42,7 @@ The native format of BWT-merge uses numeric values 0-5 as its internal alphabet.
 |`sdsl`         |sorted  |[SDSL](https://github.com/simongog/sdsl-lite): `int_vector_buffer<8>` of characters
 |`sga`          |default |[SGA](https://github.com/jts/sga): byte array with 3 bits for the character and 5 bits for the length of the run
 
-## Current performance (v0.2.1)
+## Performance (v0.2.1)
 
 The input consists of several BWT files from the ReadServer project. Each of the files contains unique (error-corrected, trimmed) reads ending with the bases in the file name.
 
@@ -105,7 +105,7 @@ There are also other algorithms for building the BWT for large read collections 
 ### Current version
 
 * `bwt_convert`: Faster writing in SGA format.
-* `bwt_merge`: Adjustable temp directory.
+* `bwt_merge`: Multiple input files, faster RA/BWT merging, adjustable temp directory.
 
 ### Version 0.2.1
 
@@ -131,7 +131,7 @@ There are also other algorithms for building the BWT for large read collections 
 
 * Option to load the BWT into a single array to speed up queries.
 * New query: extract a sequence based on the lexicographic rank of a suffix.
-* Multithreaded merging of the rank array.
+* RA/BWT merging using more than two threads.
 * `bwt_merge`: Input/output in any supported BWT format.
 * `bwt_convert`, `bwt_merge`: Input from stdin / output to stdout.
 * `bwt_merge`: Different options for where the sequences from `input2` are inserted:

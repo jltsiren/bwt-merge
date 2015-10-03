@@ -43,27 +43,27 @@ void printUsage();
 void verifyFMI(FMI& fmi, const std::string& name,
   const std::vector<std::string>& patterns, std::vector<size_type>& results);
 
-void merge(FMI& result, FMI& index, FMI& increment, const MergeParameters& parameters);
+void merge(FMI& index, FMI& increment, const MergeParameters& parameters);
 
 //------------------------------------------------------------------------------
 
 int
 main(int argc, char** argv)
 {
-  if(argc < 4)
+  if(argc < 2)
   {
     printUsage();
     std::exit(EXIT_SUCCESS);
   }
 
+  double start = readTimer();
   std::cout << "BWT-merge" << std::endl;
   std::cout << std::endl;
 
   int c = 0;
   bool verify = false;
   MergeParameters parameters;
-  std::string index_name, increment_name, output_name, pattern_name;
-
+  std::string pattern_name;
   while((c = getopt(argc, argv, "b:m:r:s:t:d:v:")) != -1)
   {
     switch(c)
@@ -94,31 +94,21 @@ main(int argc, char** argv)
       std::exit(EXIT_FAILURE);
     }
   }
-
-  parameters.sanitize();
-  if(optind < argc) { index_name = argv[optind]; }
-  else
+  if(argc - optind < 3)
   {
-    std::cerr << "bwt_merge: Input 1 unspecified!" << std::endl;
-  }
-  if(optind + 1 < argc) { increment_name = argv[optind + 1]; }
-  else
-  {
-    std::cerr << "bwt_merge: Input 2 unspecified!" << std::endl;
-  }
-  if(optind + 2 < argc) { output_name = argv[optind + 2]; }
-  else
-  {
-    std::cerr << "bwt_merge: Output file unspecified!" << std::endl;
+    std::cerr << "bwt_merge: Output file not specified" << std::endl;
     std::exit(EXIT_FAILURE);
   }
+  parameters.sanitize();
 
-  std::cout << "Input 1:            " << index_name << std::endl;
-  std::cout << "Input 2:            " << increment_name << std::endl;
-  std::cout << "Output:             " << output_name << std::endl;
+  for(int i = optind; i < argc - 1; i++)
+  {
+    std::cout << "Input:            " << argv[i] << std::endl;
+  }
+  std::cout << "Output:           " << argv[argc - 1] << std::endl;
   if(verify)
   {
-    std::cout << "Patterns:           " << pattern_name << std::endl;
+    std::cout << "Patterns:         " << pattern_name << std::endl;
   }
   std::cout << std::endl;
   std::cout << parameters;
@@ -136,21 +126,21 @@ main(int argc, char** argv)
   }
 
   FMI index;
-  index.load<NativeFormat>(index_name);
-  verifyFMI(index, "BWT 1", patterns, pre_results);
+  index.load<NativeFormat>(argv[optind]); optind++;
+  verifyFMI(index, "Input", patterns, pre_results);
 
-  FMI increment;
-  increment.load<NativeFormat>(increment_name);
-  verifyFMI(increment, "BWT 2", patterns, pre_results);
+  size_type bytes_added = 0;
+  while(optind < argc - 1)
+  {
+    FMI increment;
+    increment.load<NativeFormat>(argv[optind]); optind++;
+    bytes_added += increment.size();
+    verifyFMI(increment, "Input", patterns, pre_results);
+    merge(index, increment, parameters);
+  }
 
-#ifdef VERBOSE_STATUS_INFO
-  std::cerr << "bwt_merge: Memory usage before merging: " << inGigabytes(memoryUsage()) << " GB" << std::endl;
-#endif
-
-  FMI merged;
-  merge(merged, index, increment, parameters);
-  merged.serialize<NativeFormat>(output_name);
-  verifyFMI(merged, "Merged", patterns, post_results);
+  index.serialize<NativeFormat>(argv[optind]);
+  verifyFMI(index, "Output", patterns, post_results);
 
   if(verify)
   {
@@ -161,16 +151,19 @@ main(int argc, char** argv)
     }
     if(errors > 0)
     {
-      std::cout << "Verification failed for " << errors << " patterns." << std::endl;
+      std::cout << "Verification failed for " << errors << " patterns" << std::endl;
     }
     else
     {
-      std::cout << "Verification successful." << std::endl;
+      std::cout << "Verification successful" << std::endl;
     }
     std::cout << std::endl;
   }
 
-  std::cout << "Peak memory usage: " << inGigabytes(memoryUsage()) << " GB" << std::endl;
+  double seconds = readTimer() - start;
+  std::cout << "Total time:       " << seconds << " seconds (" << (inMegabytes(bytes_added) / seconds)
+            << " MB/s)" << std::endl;
+  std::cout << "Peak memory:      " << inGigabytes(memoryUsage()) << " GB" << std::endl;
   std::cout << std::endl;
 
   return 0;
@@ -181,7 +174,7 @@ main(int argc, char** argv)
 void
 printUsage()
 {
-  std::cerr << "Usage: bwt_merge [options] input1 input2 output" << std::endl;
+  std::cerr << "Usage: bwt_merge [options] input1 input2 [input3 ...] output" << std::endl;
   std::cerr << std::endl;
 
   std::cerr << "Options:" << std::endl;
@@ -230,12 +223,13 @@ verifyFMI(FMI& fmi, const std::string& name,
 }
 
 void
-merge(FMI& result, FMI& index, FMI& increment, const MergeParameters& parameters)
+merge(FMI& index, FMI& increment, const MergeParameters& parameters)
 {
   double increment_mb = inMegabytes(increment.size());
 
   double start = readTimer();
-  result = FMI(index, increment, parameters);
+  FMI temp(index, increment, parameters);
+  index.swap(temp);
   double seconds = readTimer() - start;
   std::cout << "BWTs merged in " << seconds << " seconds ("
             << (increment_mb / seconds) << " MB/s)" << std::endl;

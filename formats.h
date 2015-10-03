@@ -146,9 +146,6 @@ struct SGAFormat
 
 //------------------------------------------------------------------------------
 
-void readPlain(std::ifstream& in, BlockArray& data, sdsl::int_vector<64>& counts, const Alphabet& alpha);
-void writePlain(std::ofstream& out, const BlockArray& data, const Alphabet& alpha);
-
 template<class Format>
 void
 printFormat(std::ostream& stream)

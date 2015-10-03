@@ -228,7 +228,7 @@ mergeRA(RankArray& ra, RABuffer& ra_buffer)
 #ifdef VERBOSE_STATUS_INFO
   #pragma omp critical
   {
-    std::cerr << "mergeRA(): The buffer was full " << delays << " times." << std::endl;
+    std::cerr << "mergeRA(): The buffer was full " << delays << " times" << std::endl;
   }
 #endif
 }
@@ -294,7 +294,7 @@ mergeBWT(BWT& a, BWT& b, BWT& result, RABuffer& ra_buffer)
 #ifdef VERBOSE_STATUS_INFO
   #pragma omp critical
   {
-    std::cerr << "mergeBWT(): The buffer was empty " << delays << " times." << std::endl;
+    std::cerr << "mergeBWT(): The buffer was empty " << delays << " times" << std::endl;
   }
 #endif
 }

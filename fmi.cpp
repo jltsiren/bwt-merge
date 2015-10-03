@@ -193,7 +193,7 @@ struct MergeBuffer
     #pragma omp critical
     {
       std::cerr << "buildRA(): Thread " << omp_get_thread_num()
-                << ": Added the values to the rank array." << std::endl;
+                << ": Added the values to the rank array" << std::endl;
       std::cerr << "buildRA(): " << ra_done << "% done; RA size " << ra_gb << " GB" << std::endl;
     }
 #endif
@@ -210,7 +210,7 @@ struct MergeBuffer
     {
       std::cerr << "buildRA(): Thread " << omp_get_thread_num() << ": Flushing "
                 << this->merge_buffers[this->merge_buffers.size() - 1].values()
-                << " values to disk." << std::endl;
+                << " values to disk" << std::endl;
     }
 #endif
     this->write(this->merge_buffers[this->merge_buffers.size() - 1]);
@@ -229,7 +229,7 @@ mergeRA(MergeBuffer& mb, MergeBuffer::buffer_type& thread_buffer,
   #pragma omp critical
   {
     std::cerr << "buildRA(): Thread " << omp_get_thread_num() << ": Adding "
-              << thread_buffer.values() << " values to the merge buffer." << std::endl;
+              << thread_buffer.values() << " values to the merge buffer" << std::endl;
   }
 #endif
 
@@ -246,7 +246,7 @@ mergeRA(MergeBuffer& mb, MergeBuffer::buffer_type& thread_buffer,
       #pragma omp critical
       {
         std::cerr << "buildRA(): Thread " << omp_get_thread_num()
-                  << ": Added the values to buffer " << i << "." << std::endl;
+                  << ": Added the values to buffer " << i << std::endl;
       }
 #endif
       return;
@@ -325,7 +325,7 @@ buildRA(const FMI& a, const FMI& b, MergeBuffer& mb, range_type sequence_range)
   #pragma omp critical
   {
     std::cerr << "buildRA(): Thread " << omp_get_thread_num() << ": Finished block "
-              << sequence_range << "." << std::endl;
+              << sequence_range << std::endl;
   }
 #endif
 }
@@ -334,13 +334,14 @@ FMI::FMI(FMI& a, FMI& b, MergeParameters parameters)
 {
   if(a.alpha != b.alpha)
   {
-    std::cerr << "FMI::FMI(): Cannot merge BWTs with different alphabets." << std::endl;
+    std::cerr << "FMI::FMI(): Cannot merge BWTs with different alphabets" << std::endl;
     std::exit(EXIT_FAILURE);
   }
 
 #ifdef VERBOSE_STATUS_INFO
   std::cerr << "bwt_merge: " << a.sequences() << " sequences of total length " << a.size() << std::endl;
   std::cerr << "bwt_merge: Adding " << b.sequences() << " sequences of total length " << b.size() << std::endl;
+  std::cerr << "bwt_merge: Memory usage before merging: " << inGigabytes(memoryUsage()) << " GB" << std::endl;
   double start = readTimer();
 #endif
 
@@ -475,13 +476,13 @@ MergeParameters::tempPrefix() const
 std::ostream&
 operator<< (std::ostream& stream, const MergeParameters& parameters)
 {
-  stream << "Run buffer size:    "
+  stream << "Run buffers:      "
     << inMegabytes(parameters.run_buffer_size * sizeof(MergeParameters::run_type)) << " MB" << std::endl;
-  stream << "Thread buffer size: " << inMegabytes(parameters.thread_buffer_size) << " MB" << std::endl;
-  stream << "Merge buffers:      " << parameters.merge_buffers << std::endl;
-  stream << "Threads:            " << parameters.threads << std::endl;
-  stream << "Sequence blocks:    " << parameters.sequence_blocks << std::endl;
-  stream << "Temp directory:     " << parameters.temp_dir << std::endl;
+  stream << "Thread buffers:   " << inMegabytes(parameters.thread_buffer_size) << " MB" << std::endl;
+  stream << "Merge buffers:    " << parameters.merge_buffers << std::endl;
+  stream << "Threads:          " << parameters.threads << std::endl;
+  stream << "Sequence blocks:  " << parameters.sequence_blocks << std::endl;
+  stream << "Temp directory:   " << parameters.temp_dir << std::endl;
   return stream;
 }
 
