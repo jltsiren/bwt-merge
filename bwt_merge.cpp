@@ -100,6 +100,7 @@ main(int argc, char** argv)
     std::exit(EXIT_FAILURE);
   }
   parameters.sanitize();
+  omp_set_num_threads(parameters.threads);
 
   for(int i = optind; i < argc - 1; i++)
   {
@@ -209,6 +210,7 @@ verifyFMI(FMI& fmi, const std::string& name,
   {
     double start = readTimer();
     size_type found = 0, matches = 0;
+    #pragma omp parallel for schedule(static) reduction(+:found,matches)
     for(size_type i = 0; i < patterns.size(); i++)
     {
       range_type range = fmi.find(patterns[i]);

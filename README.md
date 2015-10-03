@@ -105,7 +105,7 @@ There are also other algorithms for building the BWT for large read collections 
 ### Current version
 
 * `bwt_convert`: Faster writing in SGA format.
-* `bwt_merge`: Multiple input files, faster RA/BWT merging, adjustable temp directory.
+* `bwt_merge`: Multiple input files, faster RA/BWT merging, multithreaded verification, adjustable temp directory.
 
 ### Version 0.2.1
 
