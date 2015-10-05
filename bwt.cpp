@@ -22,9 +22,8 @@
   SOFTWARE.
 */
 
-#include <time.h>
-
-#include <chrono>
+#include <condition_variable>
+#include <mutex>
 #include <thread>
 
 #include "bwt.h"
@@ -158,79 +157,60 @@ struct RABuffer
 
   const static size_type BUFFER_SIZE = MEGABYTE;  // Runs.
 
-  omp_lock_t            lock;
-  bool                  finished;
-  std::vector<run_type> buffer;
+  std::mutex              mtx;
+  std::condition_variable full, empty;
+  bool                    finished;
+  std::vector<run_type>   buffer;
 
   RABuffer()
   {
-    omp_init_lock(&(this->lock));
     this->finished = false;
   }
 
   ~RABuffer()
   {
-    omp_destroy_lock(&(this->lock));
   }
 
   void get(std::vector<run_type>& out_buffer, bool& last)
   {
-    omp_set_lock(&(this->lock));
-    if(!(this->buffer.empty())) { out_buffer.swap(this->buffer); }
+    std::unique_lock<std::mutex> lock(this->mtx);
+    this->full.wait(lock, [this]() { return !(buffer.empty()); } );
+    out_buffer.swap(this->buffer);
     last = this->finished;
-    omp_unset_lock(&(this->lock));
+    this->empty.notify_one();
   }
 
   void add(std::vector<run_type>& in_buffer, bool last)
   {
-    omp_set_lock(&(this->lock));
-    if(this->buffer.empty())
-    {
-      this->buffer.swap(in_buffer);
-      this->finished = last;
-    }
-    omp_unset_lock(&(this->lock));
+    std::unique_lock<std::mutex> lock(this->mtx);
+    this->empty.wait(lock, [this]() { return buffer.empty(); } );
+    this->buffer.swap(in_buffer);
+    this->finished = last;
+    this->full.notify_one();
   }
 };
 
 //------------------------------------------------------------------------------
 
-inline void
-delay(size_type ms)
-{
-  std::this_thread::sleep_for(std::chrono::milliseconds(ms));
-}
-
 void
 mergeRA(RankArray& ra, RABuffer& ra_buffer)
 {
-  ra.open();
-  size_type delays = 0;
   std::vector<RankArray::run_type> out_buffer;
   out_buffer.reserve(RABuffer::BUFFER_SIZE);
 
-  while(!(ra.end()))
+  RunBuffer run_buffer;
+  for(ra.open(); !(ra.end()); ++ra)
   {
-    out_buffer.push_back(*ra); ++ra;
-    while(out_buffer.size() >= RABuffer::BUFFER_SIZE)
+    if(run_buffer.add(*ra))
     {
-      ra_buffer.add(out_buffer, ra.end());
-      if(!(out_buffer.empty())) { delays++; delay(1); }
+      out_buffer.push_back(run_buffer.run);
+      if(out_buffer.size() >= RABuffer::BUFFER_SIZE) { ra_buffer.add(out_buffer, ra.end()); }
     }
   }
-  while(out_buffer.size() > 0)
-  {
-    ra_buffer.add(out_buffer, ra.end());
-    if(!(out_buffer.empty())) { delays++; delay(1); }
-  }
+  run_buffer.flush(); out_buffer.push_back(run_buffer.run);
+  if(out_buffer.size() > 0) { ra_buffer.add(out_buffer, ra.end()); }
 
   ra.close();
-#ifdef VERBOSE_STATUS_INFO
-  #pragma omp critical
-  {
-    std::cerr << "mergeRA(): The buffer was full " << delays << " times" << std::endl;
-  }
-#endif
 }
 
 void
@@ -243,18 +223,10 @@ mergeBWT(BWT& a, BWT& b, BWT& result, RABuffer& ra_buffer)
   size_type a_seq_pos = 0;
   range_type a_run = Run::read(a.data, a_rle_pos); a.data.clearUntil(a_rle_pos);
   range_type b_run = Run::read(b.data, b_rle_pos); b.data.clearUntil(b_rle_pos);
-  size_type delays = 0;
 
   while(!ra_finished)
   {
-    // Get the next buffer.
-    while(in_buffer.empty())
-    {
-      ra_buffer.get(in_buffer, ra_finished);
-      if(in_buffer.empty()) { delays++; delay(1); }
-    }
-
-    // Process the current buffer.
+    ra_buffer.get(in_buffer, ra_finished);
     for(size_type i = 0; i < in_buffer.size(); i++)
     {
       RankArray::run_type curr = in_buffer[i];
@@ -290,13 +262,6 @@ mergeBWT(BWT& a, BWT& b, BWT& result, RABuffer& ra_buffer)
     else { a_run.second = 0; }
   }
   out_buffer.flush(); Run::write(result.data, out_buffer.run);
-
-#ifdef VERBOSE_STATUS_INFO
-  #pragma omp critical
-  {
-    std::cerr << "mergeBWT(): The buffer was empty " << delays << " times" << std::endl;
-  }
-#endif
 }
 
 //------------------------------------------------------------------------------
@@ -310,20 +275,10 @@ BWT::BWT(BWT& a, BWT& b, RankArray& ra)
   a.destroy(); b.destroy();
   RABuffer ra_buffer;
 
-  #pragma omp parallel sections
-  {
-    // Producer
-    #pragma omp section
-    {
-      mergeRA(ra, ra_buffer);
-    }
-
-    // Consumer
-    #pragma omp section
-    {
-      mergeBWT(a, b, *this, ra_buffer);
-    }
-  }
+  std::thread producer(mergeRA, std::ref(ra), std::ref(ra_buffer));
+  std::thread consumer(mergeBWT, std::ref(a), std::ref(b), std::ref(*this), std::ref(ra_buffer));
+  producer.join();
+  consumer.join();
 
 #ifdef VERBOSE_STATUS_INFO
   double midpoint = readTimer();

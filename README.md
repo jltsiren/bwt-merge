@@ -129,6 +129,7 @@ There are also other algorithms for building the BWT for large read collections 
 
 ## Future work
 
+* Switch completely from OpenMP to C++ threads.
 * Option to load the BWT into a single array to speed up queries.
 * New query: extract a sequence based on the lexicographic rank of a suffix.
 * RA/BWT merging using more than two threads.
