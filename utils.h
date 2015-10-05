@@ -363,50 +363,8 @@ directConstruct(Type& structure, const sdsl::int_vector<8>& data)
   sdsl::ram_fs::remove(ramfile);
 }
 
-/*
-  Builds sd_vector directly from a strictly increasing sequence without storing the sequence
-  explicitly. No sanity checks. Uses an ugly hack to access sd_vector internals.
-*/
-struct SDVectorBuilder
-{
-  SDVectorBuilder();
-  SDVectorBuilder(size_type _size, size_type _capacity);
-
-  inline size_type size() const { return this->bits; }
-  inline size_type capacity() const { return this->onebits; }
-
-  inline void add(size_type value)
-  {
-    size_type high = value >> this->low_width;
-    this->high_pos += high - prev_high;
-    this->prev_high = high;
-    this->low[this->tail] = value; this->tail++;
-    this->high[this->high_pos] = 1; this->high_pos++;
-  }
-
-  size_type bits, onebits;
-  size_type low_width;
-  size_type tail, prev_high, high_pos;
-
-  sdsl::int_vector<0> low;
-  sdsl::bit_vector    high;
-};
-
 //------------------------------------------------------------------------------
 
 } // namespace bwtmerge
-
-namespace sdsl
-{
-
-template<>
-template<>
-sd_vector<>::sd_vector<bwtmerge::SDVectorBuilder*>(
-  bwtmerge::SDVectorBuilder* builder,
-  bwtmerge::SDVectorBuilder*);
-
-} // namespace sdsl
-
-//------------------------------------------------------------------------------
 
 #endif // _BWTMERGE_UTILS_H

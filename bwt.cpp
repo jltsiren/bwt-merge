@@ -479,11 +479,11 @@ void
 BWT::build(const sdsl::int_vector<64>& counts)
 {
   size_type blocks = (this->bytes() + SAMPLE_RATE - 1) / SAMPLE_RATE;
-  SDVectorBuilder block_ends(this->size(), blocks);
-  SDVectorBuilder block_counts[SIGMA];
+  sdsl::sd_vector_builder block_ends(this->size(), blocks);
+  sdsl::sd_vector_builder block_counts[SIGMA];
   for(size_type c = 0; c < SIGMA; c++)
   {
-    block_counts[c] = SDVectorBuilder(counts[c] + blocks, blocks);
+    block_counts[c] = sdsl::sd_vector_builder(counts[c] + blocks, blocks);
   }
 
   // Scan the BWT and determine block boundaries and ranks.
@@ -495,16 +495,16 @@ BWT::build(const sdsl::int_vector<64>& counts)
     seq_pos += run.second; cumulative[run.first] += run.second;
     if(rle_pos >= this->bytes() || rle_pos % SAMPLE_RATE == 0)
     {
-      block_ends.add(seq_pos - 1);
+      block_ends.set(seq_pos - 1);
       for(size_type c = 0; c < SIGMA; c++)
       {
-        block_counts[c].add(cumulative[c]); cumulative[c]++;
+        block_counts[c].set(cumulative[c]); cumulative[c]++;
       }
     }
   }
 
   // Build rank/select support.
-  this->block_boundaries = sdsl::sd_vector<>(&block_ends, &block_ends);
+  this->block_boundaries = sdsl::sd_vector<>(block_ends);
   sdsl::util::init_support(this->block_rank, &(this->block_boundaries));
   sdsl::util::init_support(this->block_select, &(this->block_boundaries));
   for(size_type c = 0; c < SIGMA; c++)

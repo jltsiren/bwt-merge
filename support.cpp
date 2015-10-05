@@ -352,10 +352,10 @@ CumulativeArray::~CumulativeArray()
 {
 }
 
-CumulativeArray::CumulativeArray(SDVectorBuilder& builder)
+CumulativeArray::CumulativeArray(sdsl::sd_vector_builder& builder)
 {
   this->m_size = builder.capacity();
-  this->data = sdsl::sd_vector<>(&builder, &builder);
+  this->data = sdsl::sd_vector<>(builder);
   this->buildSupport();
 }
 

@@ -322,7 +322,7 @@ public:
     this->buildSupport();
   }
 
-  explicit CumulativeArray(SDVectorBuilder& builder);
+  explicit CumulativeArray(sdsl::sd_vector_builder& builder);
 
   void swap(CumulativeArray& source);
   CumulativeArray& operator=(const CumulativeArray& source);
