@@ -100,7 +100,7 @@ public:
     in.close();
 
     this->setHeader(counts);
-    this->build();
+    this->build(counts);
   }
 
 //------------------------------------------------------------------------------
@@ -184,7 +184,7 @@ private:
   void setHeader(const sdsl::int_vector<64>& counts);
 
   // Builds/destroys the rank/select structures.
-  void build();
+  void build(const sdsl::int_vector<64>& counts);
   void destroy();
 };  // class BWT
 

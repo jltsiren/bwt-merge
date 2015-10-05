@@ -211,50 +211,6 @@ size_type fileSize(std::ofstream& file);
 
 template<class Iterator, class Comparator>
 void
-parallelQuickSort(Iterator first, Iterator last, const Comparator& comp)
-{
-#ifdef _GLIBCXX_PARALLEL
-  std::sort(first, last, comp, __gnu_parallel::balanced_quicksort_tag());
-#else
-  std::sort(first, last, comp);
-#endif
-}
-
-template<class Iterator>
-void
-parallelQuickSort(Iterator first, Iterator last)
-{
-#ifdef _GLIBCXX_PARALLEL
-  std::sort(first, last, __gnu_parallel::balanced_quicksort_tag());
-#else
-  std::sort(first, last);
-#endif
-}
-
-template<class Iterator, class Comparator>
-void
-parallelMergeSort(Iterator first, Iterator last, const Comparator& comp)
-{
-#ifdef _GLIBCXX_PARALLEL
-  std::sort(first, last, comp, __gnu_parallel::multiway_mergesort_tag());
-#else
-  std::sort(first, last, comp);
-#endif
-}
-
-template<class Iterator>
-void
-parallelMergeSort(Iterator first, Iterator last)
-{
-#ifdef _GLIBCXX_PARALLEL
-  std::sort(first, last, __gnu_parallel::multiway_mergesort_tag());
-#else
-  std::sort(first, last);
-#endif
-}
-
-template<class Iterator, class Comparator>
-void
 sequentialSort(Iterator first, Iterator last, const Comparator& comp)
 {
 #ifdef _GLIBCXX_PARALLEL
@@ -273,15 +229,6 @@ sequentialSort(Iterator first, Iterator last)
 #else
   std::sort(first, last);
 #endif
-}
-
-template<class Element>
-void
-removeDuplicates(std::vector<Element>& vec, bool parallel)
-{
-  if(parallel) { parallelQuickSort(vec.begin(), vec.end()); }
-  else         { sequentialSort(vec.begin(), vec.end()); }
-  vec.resize(std::unique(vec.begin(), vec.end()) - vec.begin());
 }
 
 //------------------------------------------------------------------------------
@@ -399,23 +346,6 @@ struct IntVectorBuffer
 };
 
 /*
-  Extracts the given range from source, overwriting target.
-*/
-template<class VectorType>
-void
-extractBits(const VectorType& source, range_type range, sdsl::bit_vector& target)
-{
-  if(Range::empty(range) || range.second >= source.size()) { return; }
-
-  target = sdsl::bit_vector(Range::length(range), 0);
-  for(size_type i = 0; i < target.size(); i += WORD_BITS)
-  {
-    size_type len = std::min(WORD_BITS, target.size() - i);
-    target.set_int(i, source.get_int(range.first + i, len), len);
-  }
-}
-
-/*
   Generic in-memory construction from int_vector_buffer<8> and size. Not very space-efficient, as it
   duplicates the data.
 */
@@ -433,8 +363,50 @@ directConstruct(Type& structure, const sdsl::int_vector<8>& data)
   sdsl::ram_fs::remove(ramfile);
 }
 
+/*
+  Builds sd_vector directly from a strictly increasing sequence without storing the sequence
+  explicitly. No sanity checks. Uses an ugly hack to access sd_vector internals.
+*/
+struct SDVectorBuilder
+{
+  SDVectorBuilder();
+  SDVectorBuilder(size_type _size, size_type _capacity);
+
+  inline size_type size() const { return this->bits; }
+  inline size_type capacity() const { return this->onebits; }
+
+  inline void add(size_type value)
+  {
+    size_type high = value >> this->low_width;
+    this->high_pos += high - prev_high;
+    this->prev_high = high;
+    this->low[this->tail] = value; this->tail++;
+    this->high[this->high_pos] = 1; this->high_pos++;
+  }
+
+  size_type bits, onebits;
+  size_type low_width;
+  size_type tail, prev_high, high_pos;
+
+  sdsl::int_vector<0> low;
+  sdsl::bit_vector    high;
+};
+
 //------------------------------------------------------------------------------
 
 } // namespace bwtmerge
+
+namespace sdsl
+{
+
+template<>
+template<>
+sd_vector<>::sd_vector<bwtmerge::SDVectorBuilder*>(
+  bwtmerge::SDVectorBuilder* builder,
+  bwtmerge::SDVectorBuilder*);
+
+} // namespace sdsl
+
+//------------------------------------------------------------------------------
 
 #endif // _BWTMERGE_UTILS_H

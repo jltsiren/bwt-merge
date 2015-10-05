@@ -319,10 +319,10 @@ public:
     this->data = sdsl::sd_vector<>(sequence.begin(), sequence.end());
     for(size_type i = this->size() - 1; i > 0; i--) { sequence[i] -= sequence[i - 1] + 1; }
 
-    sdsl::util::init_support(this->rank, &(this->data));
-    sdsl::util::init_support(this->select_1, &(this->data));
-    sdsl::util::init_support(this->select_0, &(this->data));
+    this->buildSupport();
   }
+
+  explicit CumulativeArray(SDVectorBuilder& builder);
 
   void swap(CumulativeArray& source);
   CumulativeArray& operator=(const CumulativeArray& source);
@@ -378,6 +378,7 @@ public:
 
 private:
   void copy(const CumulativeArray& source);
+  void buildSupport();
   void setVectors();
 };  // class CumulativeArray
 

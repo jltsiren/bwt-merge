@@ -352,6 +352,13 @@ CumulativeArray::~CumulativeArray()
 {
 }
 
+CumulativeArray::CumulativeArray(SDVectorBuilder& builder)
+{
+  this->m_size = builder.capacity();
+  this->data = sdsl::sd_vector<>(&builder, &builder);
+  this->buildSupport();
+}
+
 void
 CumulativeArray::copy(const CumulativeArray& source)
 {
@@ -361,6 +368,14 @@ CumulativeArray::copy(const CumulativeArray& source)
   this->select_0 = source.select_0;
   this->setVectors();
   this->m_size = source.m_size;
+}
+
+void
+CumulativeArray::buildSupport()
+{
+  sdsl::util::init_support(this->rank, &(this->data));
+  sdsl::util::init_support(this->select_1, &(this->data));
+  sdsl::util::init_support(this->select_0, &(this->data));
 }
 
 void

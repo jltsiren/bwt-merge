@@ -214,7 +214,7 @@ mergeRA(RankArray& ra, RABuffer& ra_buffer)
 }
 
 void
-mergeBWT(BWT& a, BWT& b, BWT& result, RABuffer& ra_buffer)
+mergeBWT(BWT& a, BWT& b, BWT& result, sdsl::int_vector<64>& counts, RABuffer& ra_buffer)
 {
   std::vector<RABuffer::run_type> in_buffer;
   RunBuffer out_buffer;
@@ -224,6 +224,7 @@ mergeBWT(BWT& a, BWT& b, BWT& result, RABuffer& ra_buffer)
   range_type a_run = Run::read(a.data, a_rle_pos); a.data.clearUntil(a_rle_pos);
   range_type b_run = Run::read(b.data, b_rle_pos); b.data.clearUntil(b_rle_pos);
 
+  // Interleave a and b according to ra.
   while(!ra_finished)
   {
     ra_buffer.get(in_buffer, ra_finished);
@@ -233,7 +234,11 @@ mergeBWT(BWT& a, BWT& b, BWT& result, RABuffer& ra_buffer)
       while(a_seq_pos < curr.first)
       {
         size_type length = std::min(curr.first - a_seq_pos, a_run.second);
-        if(out_buffer.add(a_run.first, length)) { Run::write(result.data, out_buffer.run); }
+        if(out_buffer.add(a_run.first, length))
+        {
+          Run::write(result.data, out_buffer.run);
+          counts[out_buffer.run.first] += out_buffer.run.second;
+        }
         a_run.second -= length; a_seq_pos += length;
         if(a_run.second == 0 && a_rle_pos < a.data.size())
         {
@@ -243,7 +248,11 @@ mergeBWT(BWT& a, BWT& b, BWT& result, RABuffer& ra_buffer)
       while(curr.second > 0)
       {
         size_type length = std::min(curr.second, b_run.second);
-        if(out_buffer.add(b_run.first, length)) { Run::write(result.data, out_buffer.run); }
+        if(out_buffer.add(b_run.first, length))
+        {
+          Run::write(result.data, out_buffer.run);
+          counts[out_buffer.run.first] += out_buffer.run.second;
+        }
         b_run.second -= length; curr.second -= length;
         if(b_run.second == 0 && b_rle_pos < b.data.size())
         {
@@ -254,14 +263,22 @@ mergeBWT(BWT& a, BWT& b, BWT& result, RABuffer& ra_buffer)
     in_buffer.clear();
   }
 
-  // Process the rest of a.
+  // Append the rest of a.
   while(a_run.second > 0)
   {
-    if(out_buffer.add(a_run)) { Run::write(result.data, out_buffer.run); }
+    if(out_buffer.add(a_run))
+    {
+      Run::write(result.data, out_buffer.run);
+      counts[out_buffer.run.first] += out_buffer.run.second;
+    }
     if(a_rle_pos < a.data.size()) { a_run = Run::read(a.data, a_rle_pos); a.data.clearUntil(a_rle_pos); }
     else { a_run.second = 0; }
   }
-  out_buffer.flush(); Run::write(result.data, out_buffer.run);
+
+  // Flush the buffer.
+  out_buffer.flush();
+  Run::write(result.data, out_buffer.run);
+  counts[out_buffer.run.first] += out_buffer.run.second;
 }
 
 //------------------------------------------------------------------------------
@@ -274,9 +291,11 @@ BWT::BWT(BWT& a, BWT& b, RankArray& ra)
 
   a.destroy(); b.destroy();
   RABuffer ra_buffer;
+  sdsl::int_vector<64> counts(SIGMA, 0);
 
   std::thread producer(mergeRA, std::ref(ra), std::ref(ra_buffer));
-  std::thread consumer(mergeBWT, std::ref(a), std::ref(b), std::ref(*this), std::ref(ra_buffer));
+  std::thread consumer(mergeBWT, std::ref(a), std::ref(b), std::ref(*this),
+    std::ref(counts), std::ref(ra_buffer));
   producer.join();
   consumer.join();
 
@@ -288,7 +307,7 @@ BWT::BWT(BWT& a, BWT& b, RankArray& ra)
   this->header.sequences = a.sequences() + b.sequences();
   this->header.bases = a.size() + b.size();
   this->header.setOrder(a.header.order());
-  this->build();
+  this->build(counts);
 
 #ifdef VERBOSE_STATUS_INFO
   double seconds = readTimer() - midpoint;
@@ -457,39 +476,40 @@ BWT::setHeader(const sdsl::int_vector<64>& counts)
 }
 
 void
-BWT::build()
+BWT::build(const sdsl::int_vector<64>& counts)
 {
   size_type blocks = (this->bytes() + SAMPLE_RATE - 1) / SAMPLE_RATE;
-  sdsl::int_vector<0> block_ends(blocks, 0, bit_length(this->size()));
-  sdsl::int_vector<0> counts[SIGMA];
+  SDVectorBuilder block_ends(this->size(), blocks);
+  SDVectorBuilder block_counts[SIGMA];
   for(size_type c = 0; c < SIGMA; c++)
   {
-    counts[c] = sdsl::int_vector<0>(blocks, 0, bit_length(this->size()));
+    block_counts[c] = SDVectorBuilder(counts[c] + blocks, blocks);
   }
 
   // Scan the BWT and determine block boundaries and ranks.
-  // This could be done in parallel, but it would create potential problems, because
-  // adjacent values of int_vector are (partially) stored in the same words.
-  size_type seq_pos = 0, rle_pos = 0, block = 0;
+  size_type seq_pos = 0, rle_pos = 0;
+  sdsl::int_vector<64> cumulative(SIGMA, 0);
   while(rle_pos < this->bytes())
   {
-    range_type run = Run::read(this->data, rle_pos); seq_pos += run.second;
-    counts[run.first][block] += run.second;
+    range_type run = Run::read(this->data, rle_pos);
+    seq_pos += run.second; cumulative[run.first] += run.second;
     if(rle_pos >= this->bytes() || rle_pos % SAMPLE_RATE == 0)
     {
-      block_ends[block] = seq_pos - 1; block++;
+      block_ends.add(seq_pos - 1);
+      for(size_type c = 0; c < SIGMA; c++)
+      {
+        block_counts[c].add(cumulative[c]); cumulative[c]++;
+      }
     }
   }
 
-  // Build the compressed structures. Save memory by doing it sequentially.
-  this->block_boundaries = sdsl::sd_vector<>(block_ends.begin(), block_ends.end());
-  sdsl::util::clear(block_ends);
+  // Build rank/select support.
+  this->block_boundaries = sdsl::sd_vector<>(&block_ends, &block_ends);
   sdsl::util::init_support(this->block_rank, &(this->block_boundaries));
   sdsl::util::init_support(this->block_select, &(this->block_boundaries));
   for(size_type c = 0; c < SIGMA; c++)
   {
-    this->samples[c] = CumulativeArray(counts[c]);
-    sdsl::util::clear(counts[c]);
+    this->samples[c] = CumulativeArray(block_counts[c]);
   }
 }
 

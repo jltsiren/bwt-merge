@@ -175,4 +175,50 @@ getBounds(range_type range, size_type blocks)
 
 //------------------------------------------------------------------------------
 
+SDVectorBuilder::SDVectorBuilder() :
+  bits(0), onebits(0),
+  low_width(0),
+  tail(0), prev_high(0), high_pos(0)
+{
+}
+
+SDVectorBuilder::SDVectorBuilder(size_type _size, size_type _capacity) :
+  bits(_size), onebits(_capacity),
+  low_width(0),
+  tail(0), prev_high(0), high_pos(0)
+{
+  if(this->onebits > this->bits) { this->onebits = this->bits; }
+  if(this->onebits == 0) { return; }
+
+  size_type logn = bit_length(this->size()), logm = bit_length(this->capacity());
+  if(logm == logn) { logm--; }
+  this->low_width = logn - logm;
+  this->low = sdsl::int_vector<0>(this->capacity(), 0, this->low_width);
+  this->high = sdsl::bit_vector(this->capacity() + (((size_type)1) << logm), 0);
+}
+
+//------------------------------------------------------------------------------
+
 } // namespace bwtmerge
+
+namespace sdsl
+{
+
+template<>
+template<>
+sd_vector<>::sd_vector<bwtmerge::SDVectorBuilder*>(
+  bwtmerge::SDVectorBuilder* builder,
+  bwtmerge::SDVectorBuilder*)
+{
+  this->m_size = builder->size();
+  this->m_wl = builder->low_width;
+  this->m_low.swap(builder->low);
+  this->m_high.swap(builder->high);
+
+  util::init_support(this->m_high_1_select, &(this->m_high));
+  util::init_support(this->m_high_0_select, &(this->m_high));
+}
+
+} // namespace sdsl
+
+//------------------------------------------------------------------------------
