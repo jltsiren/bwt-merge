@@ -153,11 +153,13 @@ fileSize(std::ofstream& file)
 
 //------------------------------------------------------------------------------
 
+size_type Parallel::max_threads = std::max((unsigned)1, std::thread::hardware_concurrency());
+
 std::vector<range_type>
 getBounds(range_type range, size_type blocks)
 {
-  blocks = std::min(blocks, Range::length(range));
-  blocks = std::max(blocks, (size_type)1);
+  if(Range::empty(range)) { return std::vector<range_type>(); }
+  blocks = Range::bound(blocks, 1, Range::length(range));
 
   std::vector<range_type> bounds(blocks);
   for(size_type block = 0, start = range.first; block < blocks; block++)
@@ -171,6 +173,37 @@ getBounds(range_type range, size_type blocks)
   }
 
   return bounds;
+}
+
+ParallelLoop::ParallelLoop(range_type range, size_type block_count, size_type thread_count) :
+  tail(0)
+{
+  if(Range::empty(range)) { return; }
+
+  this->blocks = getBounds(range, block_count);
+  thread_count = Range::bound(thread_count, 1, this->blocks.size());
+  this->threads = std::vector<std::thread>(thread_count);
+}
+
+ParallelLoop::~ParallelLoop()
+{
+  this->join();
+}
+
+range_type
+ParallelLoop::next()
+{
+  size_type block = this->tail++; // Atomic.
+  return (block < this->blocks.size() ? this->blocks[block] : Range::empty_range());
+}
+
+void
+ParallelLoop::join()
+{
+  for(size_type i = 0; i < this->threads.size(); i++)
+  {
+    if(this->threads[i].joinable()) { this->threads[i].join(); }
+  }
 }
 
 //------------------------------------------------------------------------------

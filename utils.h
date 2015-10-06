@@ -26,9 +26,12 @@
 #define _BWTMERGE_UTILS_H
 
 #include <algorithm>
+#include <atomic>
 #include <cstdint>
 #include <fstream>
 #include <iostream>
+#include <mutex>
+#include <thread>
 #include <vector>
 
 #include <sdsl/wavelet_trees.hpp>
@@ -79,6 +82,21 @@ struct Range
   inline static bool empty(range_type range)
   {
     return (range.first + 1 > range.second + 1);
+  }
+
+  inline static size_type bound(size_type value, range_type bounds)
+  {
+    return bound(value, bounds.first, bounds.second);
+  }
+
+  inline static size_type bound(size_type value, size_type low, size_type high)
+  {
+    return std::max(std::min(value, high), low);
+  }
+
+  inline static range_type empty_range()
+  {
+    return range_type(1, 0);
   }
 };
 
@@ -233,12 +251,52 @@ sequentialSort(Iterator first, Iterator last)
 
 //------------------------------------------------------------------------------
 
+struct Parallel
+{
+  static size_type  max_threads;
+  static std::mutex stderr_access;
+};
+
 /*
   Split the range approximately evenly between the blocks. The actual number of blocks
   will not be greater than the length of the range or smaller than 1.
 */
-
 std::vector<range_type> getBounds(range_type range, size_type blocks);
+
+/*
+  Execute a loop over the range (inclusive) in (at most) block_count blocks with
+  (at most) thread_count threads.
+
+  The function to be executed will get a reference to the ParallelLoop object as its
+  first argument. The function should call next() to get the next range to process,
+  with an empty range meaning that it should finish. The threads are joined when the
+  object is destroyed or when join() is explicitly called.
+*/
+class ParallelLoop
+{
+public:
+  ParallelLoop(range_type range, size_type block_count, size_type thread_count);
+  ~ParallelLoop();
+
+  ParallelLoop(const ParallelLoop&) = delete;
+  ParallelLoop& operator= (const ParallelLoop&) = delete;
+
+  template<class Function, class... Args>
+  void execute(Function&& fn, Args&&... args)
+  {
+    for(size_type i = 0; i < this->threads.size(); i++)
+    {
+      this->threads[i] = std::thread(fn, std::ref(*this), args...);
+    }
+  }
+
+  range_type next();
+  void join();
+
+  std::atomic<size_type>   tail;
+  std::vector<range_type>  blocks;
+  std::vector<std::thread> threads;
+};
 
 //------------------------------------------------------------------------------
 

@@ -325,23 +325,37 @@ SGAFormat::read(std::ifstream& in, BlockArray& data, sdsl::int_vector<64>& count
 }
 
 void
+countSGARuns(ParallelLoop& loop, const BlockArray& data, std::atomic<size_type>& total_runs)
+{
+  while(true)
+  {
+    range_type range = loop.next();
+    if(Range::empty(range)) { return; }
+    size_type runs = 0;
+    for(size_type block = range.first; block <= range.second; block++)
+    {
+      size_type rle_pos = block * BlockArray::BLOCK_SIZE;
+      size_type limit = std::min(data.size(), (block + 1) * BlockArray::BLOCK_SIZE);
+      while(rle_pos < limit)
+      {
+        range_type run = Run::read(data, rle_pos);
+        runs += (run.second + SGAData::MAX_RUN - 1) / SGAData::MAX_RUN;
+      }
+    }
+    total_runs += runs;
+  }
+}
+
+void
 SGAFormat::write(std::ofstream& out, const BlockArray& data, const NativeHeader& info)
 {
-  SGAHeader header; header.bases = info.bases; header.sequences = info.sequences;
-  #pragma omp parallel for schedule(static)
-  for(size_type block = 0; block < data.blocks(); block++)
-  {
-    size_type rle_pos = block * BlockArray::BLOCK_SIZE;
-    size_type limit = std::min(data.size(), (block + 1) * BlockArray::BLOCK_SIZE);
-    size_type block_runs = 0;
-    while(rle_pos < limit)
-    {
-      range_type run = Run::read(data, rle_pos);
-      block_runs += (run.second + SGAData::MAX_RUN - 1) / SGAData::MAX_RUN;
-    }
-    #pragma omp atomic
-    header.bytes += block_runs;
-  }
+  ParallelLoop loop(range_type(0, data.blocks() - 1), Parallel::max_threads, Parallel::max_threads);
+  std::atomic<size_type> total_runs;
+  loop.execute(countSGARuns, std::ref(data), std::ref(total_runs));
+  loop.join();
+
+  SGAHeader header;
+  header.bases = info.bases; header.sequences = info.sequences; header.bytes = total_runs;
   header.serialize(out);
 
   size_type rle_pos = 0;
