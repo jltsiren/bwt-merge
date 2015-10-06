@@ -22,6 +22,7 @@
   SOFTWARE.
 */
 
+#include <chrono>
 #include <cstdlib>
 
 #include <sys/resource.h>
@@ -70,7 +71,8 @@ printTime(const std::string& header, size_type queries, double seconds, size_typ
 double
 readTimer()
 {
-  return omp_get_wtime();
+  std::chrono::duration<double> temp = std::chrono::steady_clock::now().time_since_epoch();
+  return temp.count();
 }
 
 size_type
@@ -154,6 +156,7 @@ fileSize(std::ofstream& file)
 //------------------------------------------------------------------------------
 
 size_type Parallel::max_threads = std::max((unsigned)1, std::thread::hardware_concurrency());
+std::mutex Parallel::stderr_access;
 
 std::vector<range_type>
 getBounds(range_type range, size_type blocks)
@@ -175,12 +178,12 @@ getBounds(range_type range, size_type blocks)
   return bounds;
 }
 
-ParallelLoop::ParallelLoop(range_type range, size_type block_count, size_type thread_count) :
+ParallelLoop::ParallelLoop(size_type start, size_type limit, size_type block_count, size_type thread_count) :
   tail(0)
 {
-  if(Range::empty(range)) { return; }
+  if(start >= limit) { return; }
 
-  this->blocks = getBounds(range, block_count);
+  this->blocks = getBounds(range_type(start, limit - 1), block_count);
   thread_count = Range::bound(thread_count, 1, this->blocks.size());
   this->threads = std::vector<std::thread>(thread_count);
 }

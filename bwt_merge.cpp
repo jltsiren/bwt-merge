@@ -100,7 +100,7 @@ main(int argc, char** argv)
     std::exit(EXIT_FAILURE);
   }
   parameters.sanitize();
-  omp_set_num_threads(parameters.threads);
+  Parallel::max_threads = parameters.threads;
 
   for(int i = optind; i < argc - 1; i++)
   {
@@ -198,6 +198,28 @@ printUsage()
 //------------------------------------------------------------------------------
 
 void
+queryFMI(ParallelLoop& loop, const FMI& fmi, const std::vector<std::string>& patterns,
+  std::vector<size_type>& results,
+  std::atomic<size_type>& total_found, std::atomic<size_type>& total_matches)
+{
+  while(true)
+  {
+    range_type range = loop.next();
+    if(Range::empty(range)) { return; }
+
+    size_type found = 0, matches = 0;
+    for(size_type i = range.first; i <= range.second; i++)
+    {
+      range_type result = fmi.find(patterns[i]);
+      results[i] += Range::length(result);
+      if(!(Range::empty(range))) { found++; matches += Range::length(result); }
+    }
+
+    total_found += found; total_matches += matches;
+  }
+}
+
+void
 verifyFMI(FMI& fmi, const std::string& name,
   const std::vector<std::string>& patterns, std::vector<size_type>& results)
 {
@@ -209,13 +231,11 @@ verifyFMI(FMI& fmi, const std::string& name,
   if(chars > 0)
   {
     double start = readTimer();
-    size_type found = 0, matches = 0;
-    #pragma omp parallel for schedule(static) reduction(+:found,matches)
-    for(size_type i = 0; i < patterns.size(); i++)
+    std::atomic<size_type> found(0), matches(0);
     {
-      range_type range = fmi.find(patterns[i]);
-      results[i] += Range::length(range);
-      if(!(Range::empty(range))) { found++; matches += Range::length(range); }
+      ParallelLoop loop(0, patterns.size(), Parallel::max_threads, Parallel::max_threads);
+      loop.execute(queryFMI, std::ref(fmi), std::ref(patterns),
+        std::ref(results), std::ref(found), std::ref(matches));
     }
     double seconds = readTimer() - start;
     printTime(name, found, matches, chars, seconds);

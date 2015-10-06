@@ -61,7 +61,7 @@ struct MergeParameters
   inline static double defaultRB() { return inMegabytes(RUN_BUFFER_SIZE * sizeof(run_type)); }
   inline static double defaultTB() { return inMegabytes(THREAD_BUFFER_SIZE); }
   inline static size_type defaultMB() { return MERGE_BUFFERS; }
-  inline static size_type defaultT()  { return omp_get_max_threads(); }
+  inline static size_type defaultT()  { return Parallel::max_threads; }
   inline static size_type defaultSB() { return BLOCKS_PER_THREAD; }
 
   inline void setRB(size_type mb) { this->run_buffer_size = mb * MEGABYTE / sizeof(run_type); }

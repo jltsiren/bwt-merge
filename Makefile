@@ -4,14 +4,10 @@ SDSL_DIR=../sdsl-lite
 # In Linux, the value is in kilobytes, so this line should be commented out.
 #RUSAGE_FLAGS=-DRUSAGE_IN_BYTES
 
-# Multithreading with OpenMP and libstdc++ Parallel Mode. Requires g++ 4.7
-# or newer.
-PARALLEL_FLAGS=-fopenmp -D_GLIBCXX_PARALLEL
-
 # Verbose output during index construction etc.
 OUTPUT_FLAGS=-DVERBOSE_STATUS_INFO
 
-OTHER_FLAGS=$(RUSAGE_FLAGS) $(PARALLEL_FLAGS) $(OUTPUT_FLAGS)
+OTHER_FLAGS=$(RUSAGE_FLAGS) $(OUTPUT_FLAGS)
 
 include $(SDSL_DIR)/Make.helper
 CXX_FLAGS=$(MY_CXX_FLAGS) $(OTHER_FLAGS) $(MY_CXX_OPT_FLAGS) -I$(INC_DIR)

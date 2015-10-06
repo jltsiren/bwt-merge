@@ -36,8 +36,6 @@
 
 #include <sdsl/wavelet_trees.hpp>
 
-#include <omp.h>
-
 namespace bwtmerge
 {
 
@@ -212,8 +210,8 @@ void printTime(const std::string& header, size_type queries, double seconds, siz
 
 //------------------------------------------------------------------------------
 
-double readTimer();
-size_type memoryUsage(); // Peak memory usage in bytes.
+double readTimer();       // Seconds from an arbitrary time point.
+size_type memoryUsage();  // Peak memory usage in bytes.
 
 //------------------------------------------------------------------------------
 
@@ -264,18 +262,21 @@ struct Parallel
 std::vector<range_type> getBounds(range_type range, size_type blocks);
 
 /*
-  Execute a loop over the range (inclusive) in (at most) block_count blocks with
-  (at most) thread_count threads.
+  Execute a loop over the range (semiopen) in (at most) block_count blocks with
+  (at most) thread_count threads. The blocks are represented as range_types (closed
+  ranges).
 
   The function to be executed will get a reference to the ParallelLoop object as its
   first argument. The function should call next() to get the next range to process,
   with an empty range meaning that it should finish. The threads are joined when the
   object is destroyed or when join() is explicitly called.
+
+  Like with std::thread, use std::ref() to give references as arguments to execute().
 */
 class ParallelLoop
 {
 public:
-  ParallelLoop(range_type range, size_type block_count, size_type thread_count);
+  ParallelLoop(size_type start, size_type limit, size_type block_count, size_type thread_count);
   ~ParallelLoop();
 
   ParallelLoop(const ParallelLoop&) = delete;

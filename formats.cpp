@@ -349,10 +349,11 @@ countSGARuns(ParallelLoop& loop, const BlockArray& data, std::atomic<size_type>&
 void
 SGAFormat::write(std::ofstream& out, const BlockArray& data, const NativeHeader& info)
 {
-  ParallelLoop loop(range_type(0, data.blocks() - 1), Parallel::max_threads, Parallel::max_threads);
-  std::atomic<size_type> total_runs;
-  loop.execute(countSGARuns, std::ref(data), std::ref(total_runs));
-  loop.join();
+  std::atomic<size_type> total_runs(0);
+  {
+    ParallelLoop loop(0, data.blocks(), Parallel::max_threads, Parallel::max_threads);
+    loop.execute(countSGARuns, std::ref(data), std::ref(total_runs));
+  }
 
   SGAHeader header;
   header.bases = info.bases; header.sequences = info.sequences; header.bytes = total_runs;

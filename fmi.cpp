@@ -143,10 +143,10 @@ struct MergeBuffer
 
   MergeParameters parameters;
 
-  std::vector<omp_lock_t>  buffer_locks;
+  std::mutex               buffer_lock;
   std::vector<buffer_type> merge_buffers;
 
-  omp_lock_t ra_lock;
+  std::mutex ra_lock;
   RankArray  ra;
   size_type  ra_values, ra_bytes;
 
@@ -154,45 +154,45 @@ struct MergeBuffer
 
   MergeBuffer(size_type _size, const MergeParameters& _parameters) :
     parameters(_parameters),
-    buffer_locks(_parameters.merge_buffers), merge_buffers(_parameters.merge_buffers),
+    merge_buffers(_parameters.merge_buffers),
     ra_values(0), ra_bytes(0), size(_size)
   {
-    for(size_type i = 0; i < buffer_locks.size(); i++) { omp_init_lock(&(this->buffer_locks[i])); }
-    omp_init_lock(&(this->ra_lock));
   }
 
-  ~MergeBuffer()
-  {
-    for(size_type i = 0; i < buffer_locks.size(); i++) { omp_destroy_lock(&(this->buffer_locks[i])); }
-    omp_destroy_lock(&(this->ra_lock));
-  }
+  ~MergeBuffer() {}
 
   void write(buffer_type& buffer)
   {
     if(buffer.empty()) { return; }
 
+    std::string filename;
     size_type buffer_values = buffer.values(), buffer_bytes = buffer.bytes();
-
-    omp_set_lock(&(this->ra_lock));
-    std::string filename = tempFile(this->parameters.tempPrefix());
-    this->ra.filenames.push_back(filename);
-    this->ra.run_counts.push_back(buffer.size());
-    this->ra.value_counts.push_back(buffer.values());
-    omp_unset_lock(&(this->ra_lock));
+    {
+      std::lock_guard<std::mutex> lock(this->ra_lock);
+      filename = tempFile(this->parameters.tempPrefix());
+      this->ra.filenames.push_back(filename);
+      this->ra.run_counts.push_back(buffer.size());
+      this->ra.value_counts.push_back(buffer.values());
+    }
     buffer.write(filename); buffer.clear();
 
-    omp_set_lock(&(this->ra_lock));
-    this->ra_values += buffer_values;
-    this->ra_bytes += buffer_bytes + sizeof(size_type);
 #ifdef VERBOSE_STATUS_INFO
-    double ra_done = (100.0 * this->ra_values) / this->size;
-    double ra_gb = inGigabytes(this->ra_bytes);
+    double ra_done, ra_gb;
 #endif
-    omp_unset_lock(&(this->ra_lock));
-#ifdef VERBOSE_STATUS_INFO
-    #pragma omp critical
     {
-      std::cerr << "buildRA(): Thread " << omp_get_thread_num()
+      std::lock_guard<std::mutex> lock(this->ra_lock);
+      this->ra_values += buffer_values;
+      this->ra_bytes += buffer_bytes + sizeof(size_type);
+#ifdef VERBOSE_STATUS_INFO
+      ra_done = (100.0 * this->ra_values) / this->size;
+      ra_gb = inGigabytes(this->ra_bytes);
+#endif
+    }
+
+#ifdef VERBOSE_STATUS_INFO
+    {
+      std::lock_guard<std::mutex> lock(Parallel::stderr_access);
+      std::cerr << "buildRA(): Thread " << std::this_thread::get_id()
                 << ": Added the values to the rank array" << std::endl;
       std::cerr << "buildRA(): " << ra_done << "% done; RA size " << ra_gb << " GB" << std::endl;
     }
@@ -206,9 +206,9 @@ struct MergeBuffer
       this->merge_buffers[i] = buffer_type(this->merge_buffers[i], this->merge_buffers[i - 1]);
     }
 #ifdef VERBOSE_STATUS_INFO
-    #pragma omp critical
     {
-      std::cerr << "buildRA(): Thread " << omp_get_thread_num() << ": Flushing "
+      std::lock_guard<std::mutex> lock(Parallel::stderr_access);
+      std::cerr << "buildRA(): Flushing "
                 << this->merge_buffers[this->merge_buffers.size() - 1].values()
                 << " values to disk" << std::endl;
     }
@@ -226,9 +226,9 @@ mergeRA(MergeBuffer& mb, MergeBuffer::buffer_type& thread_buffer,
   if(!force && thread_buffer.bytes() < mb.parameters.thread_buffer_size) { return; }
 
 #ifdef VERBOSE_STATUS_INFO
-  #pragma omp critical
   {
-    std::cerr << "buildRA(): Thread " << omp_get_thread_num() << ": Adding "
+    std::lock_guard<std::mutex> lock(Parallel::stderr_access);
+    std::cerr << "buildRA(): Thread " << std::this_thread::get_id() << ": Adding "
               << thread_buffer.values() << " values to the merge buffer" << std::endl;
   }
 #endif
@@ -236,18 +236,17 @@ mergeRA(MergeBuffer& mb, MergeBuffer::buffer_type& thread_buffer,
   for(size_type i = 0; i < mb.merge_buffers.size(); i++)
   {
     bool done = false;
-    omp_set_lock(&(mb.buffer_locks[i]));
-    if(mb.merge_buffers[i].empty()) { thread_buffer.swap(mb.merge_buffers[i]); done = true; }
-    else { temp_buffer.swap(mb.merge_buffers[i]); }
-    omp_unset_lock(&(mb.buffer_locks[i]));
+    {
+      std::lock_guard<std::mutex> lock(mb.buffer_lock);
+      if(mb.merge_buffers[i].empty()) { thread_buffer.swap(mb.merge_buffers[i]); done = true; }
+      else { temp_buffer.swap(mb.merge_buffers[i]); }
+    }
     if(done)
     {
 #ifdef VERBOSE_STATUS_INFO
-      #pragma omp critical
-      {
-        std::cerr << "buildRA(): Thread " << omp_get_thread_num()
-                  << ": Added the values to buffer " << i << std::endl;
-      }
+      std::lock_guard<std::mutex> lock(Parallel::stderr_access);
+      std::cerr << "buildRA(): Thread " << std::this_thread::get_id()
+                << ": Added the values to buffer " << i << std::endl;
 #endif
       return;
     }
@@ -271,63 +270,67 @@ struct MergePosition
 };
 
 void
-buildRA(const FMI& a, const FMI& b, MergeBuffer& mb, range_type sequence_range)
+buildRA(ParallelLoop& loop, const FMI& a, const FMI& b, MergeBuffer& mb)
 {
-  if(Range::empty(sequence_range)) { return; }
-
-  MergeBuffer::buffer_type thread_buffer;
-  std::vector<MergeBuffer::run_type> run_buffer; run_buffer.reserve(mb.parameters.run_buffer_size);
-  std::stack<MergePosition> positions;
-  BWT::ranks_type a_pos, b_sp, b_ep;
-  BWT::rank_ranges_type b_range;
-
-  positions.push(MergePosition(a.sequences(), sequence_range));
-  while(!(positions.empty()))
+  while(true)
   {
-    MergePosition curr = positions.top(); positions.pop();
-    run_buffer.push_back(MergeBuffer::run_type(curr.a_pos, Range::length(curr.b_range)));
-    if(run_buffer.size() >= mb.parameters.run_buffer_size)
-    {
-      mergeRA(mb, thread_buffer, run_buffer, false);
-    }
+    range_type sequence_range = loop.next();
+    if(Range::empty(sequence_range)) { return; }
 
-    if(Range::length(curr.b_range) == 1)
+    MergeBuffer::buffer_type thread_buffer;
+    std::vector<MergeBuffer::run_type> run_buffer; run_buffer.reserve(mb.parameters.run_buffer_size);
+    std::stack<MergePosition> positions;
+    BWT::ranks_type a_pos, b_sp, b_ep;
+    BWT::rank_ranges_type b_range;
+
+    positions.push(MergePosition(a.sequences(), sequence_range));
+    while(!(positions.empty()))
     {
-      range_type pred = b.LF(curr.b_range.first);
-      if(pred.second != 0)
+      MergePosition curr = positions.top(); positions.pop();
+      run_buffer.push_back(MergeBuffer::run_type(curr.a_pos, Range::length(curr.b_range)));
+      if(run_buffer.size() >= mb.parameters.run_buffer_size)
       {
-        positions.push(MergePosition(a.LF(curr.a_pos, pred.second), pred.first));
+        mergeRA(mb, thread_buffer, run_buffer, false);
       }
-    }
-    else if(Range::length(curr.b_range) <= FMI::SHORT_RANGE)
-    {
-      b.LF(curr.b_range, b_range);
-      for(size_type c = 1; c < b.alpha.sigma; c++)
+
+      if(Range::length(curr.b_range) == 1)
       {
-        if(!(Range::empty(b_range[c])))
+        range_type pred = b.LF(curr.b_range.first);
+        if(pred.second != 0)
         {
-          positions.push(MergePosition(a.LF(curr.a_pos, c), b_range[c]));
+          positions.push(MergePosition(a.LF(curr.a_pos, pred.second), pred.first));
+        }
+      }
+      else if(Range::length(curr.b_range) <= FMI::SHORT_RANGE)
+      {
+        b.LF(curr.b_range, b_range);
+        for(size_type c = 1; c < b.alpha.sigma; c++)
+        {
+          if(!(Range::empty(b_range[c])))
+          {
+            positions.push(MergePosition(a.LF(curr.a_pos, c), b_range[c]));
+          }
+        }
+      }
+      else
+      {
+        a.LF(curr.a_pos, a_pos); b.LF(curr.b_range, b_sp, b_ep);
+        for(size_type c = 1; c < b.alpha.sigma; c++)
+        {
+          if(b_sp[c] <= b_ep[c]) { positions.push(MergePosition(a_pos[c], b_sp[c], b_ep[c])); }
         }
       }
     }
-    else
-    {
-      a.LF(curr.a_pos, a_pos); b.LF(curr.b_range, b_sp, b_ep);
-      for(size_type c = 1; c < b.alpha.sigma; c++)
-      {
-        if(b_sp[c] <= b_ep[c]) { positions.push(MergePosition(a_pos[c], b_sp[c], b_ep[c])); }
-      }
-    }
-  }
 
-  mergeRA(mb, thread_buffer, run_buffer, true);
-#ifdef VERBOSE_STATUS_INFO
-  #pragma omp critical
-  {
-    std::cerr << "buildRA(): Thread " << omp_get_thread_num() << ": Finished block "
-              << sequence_range << std::endl;
+    mergeRA(mb, thread_buffer, run_buffer, true);
+  #ifdef VERBOSE_STATUS_INFO
+    {
+      std::lock_guard<std::mutex> lock(Parallel::stderr_access);
+      std::cerr << "buildRA(): Thread " << std::this_thread::get_id() << ": Finished block "
+                << sequence_range << std::endl;
+    }
+  #endif
   }
-#endif
 }
 
 FMI::FMI(FMI& a, FMI& b, MergeParameters parameters)
@@ -345,14 +348,12 @@ FMI::FMI(FMI& a, FMI& b, MergeParameters parameters)
   double start = readTimer();
 #endif
 
-  omp_set_num_threads(parameters.threads);
   std::vector<range_type> bounds = getBounds(range_type(0, b.sequences() - 1), parameters.sequence_blocks);
 
   MergeBuffer mb(b.size(), parameters);
-  #pragma omp parallel for schedule(dynamic, 1)
-  for(size_type block = 0; block < bounds.size(); block++)
   {
-    buildRA(a, b, mb, bounds[block]);
+    ParallelLoop loop(0, b.sequences(), parameters.sequence_blocks, parameters.threads);
+    loop.execute(buildRA, std::ref(a), std::ref(b), std::ref(mb));
   }
   mb.flush();
 
@@ -445,7 +446,7 @@ const std::string MergeParameters::TEMP_FILE_PREFIX = ".bwtmerge";
 MergeParameters::MergeParameters() :
   run_buffer_size(RUN_BUFFER_SIZE), thread_buffer_size(THREAD_BUFFER_SIZE),
   merge_buffers(MERGE_BUFFERS),
-  threads(omp_get_max_threads()), sequence_blocks(threads * BLOCKS_PER_THREAD),
+  threads(Parallel::max_threads), sequence_blocks(threads * BLOCKS_PER_THREAD),
   temp_dir(DEFAULT_TEMP_DIR)
 {
 }
@@ -453,8 +454,7 @@ MergeParameters::MergeParameters() :
 void
 MergeParameters::sanitize()
 {
-  this->threads = std::max(this->threads, (size_type)1);
-  this->threads = std::min(this->threads, (size_type)(omp_get_max_threads()));
+  this->threads = Range::bound(this->threads, 1, Parallel::max_threads);
   this->sequence_blocks = std::max(this->sequence_blocks, (size_type)1);
   this->threads = std::min(this->threads, this->sequence_blocks);
 }

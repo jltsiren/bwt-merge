@@ -6,7 +6,7 @@ If the dataset is up to a few hundred gigabytes in size, it is probably more pra
 
 ## Usage
 
-The implementation is based on the [Succinct Data Structures Library 2.0 (SDSL)](https://github.com/simongog/sdsl-lite). To compile, set `SDSL_DIR` in the Makefile to point to your SDSL directory. As the implementation uses C++11, OpenMP, and libstdc++ parallel mode, you need g++ 4.7 or newer to compile. Comment out the line `OUTPUT_FLAGS=-DVERBOSE_STATUS_INFO` if you do not want the merging tool to output status information to `stderr`.
+BWT-merge is based on the [Succinct Data Structures Library 2.0 (SDSL)](https://github.com/simongog/sdsl-lite). To compile, set `SDSL_DIR` in the Makefile to point to your SDSL directory. The program should compile with a relatively new g++ on both Linux and OS X. It has not been tested with other compilers. Comment out the line `OUTPUT_FLAGS=-DVERBOSE_STATUS_INFO` if you do not want the merging tool to output status information to `stderr`.
 
 There are three tools in the package:
 
@@ -104,6 +104,7 @@ There are also other algorithms for building the BWT for large read collections 
 
 ### Current version
 
+* Switched from OpenMP to C++11 threads.
 * More space-efficient rank/select construction for the BWT.
 * `bwt_convert`: Faster writing in SGA format.
 * `bwt_merge`: Multiple input files, faster RA/BWT merging, multithreaded verification, adjustable temp directory.
@@ -130,7 +131,6 @@ There are also other algorithms for building the BWT for large read collections 
 
 ## Future work
 
-* Switch completely from OpenMP to C++ threads.
 * Option to load the BWT into a single array to speed up queries.
 * New query: extract a sequence based on the lexicographic rank of a suffix.
 * RA/BWT merging using more than two threads.
