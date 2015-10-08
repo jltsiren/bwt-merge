@@ -1,5 +1,12 @@
 *.o
 *.a
+*.aux
+*.bak
+*.bbl
+*.blg
+*.pdf
+
+paper.log
 
 bwt_convert
 bwt_inspect

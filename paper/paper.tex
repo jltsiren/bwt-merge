@@ -1,0 +1,107 @@
+\documentclass[smallabstract,smallcaptions]{dccpaper}
+
+\usepackage[utf8]{inputenc}
+
+\usepackage{amsmath}
+\usepackage{amssymb}
+\usepackage{graphicx}
+\usepackage{textgreek}
+\usepackage{url}
+
+
+\newlength{\figurewidth}
+\newlength{\smallfigurewidth}
+\setlength{\smallfigurewidth}{2.75in}
+\setlength{\figurewidth}{6in}
+
+\begin{document}
+
+\title
+{\large
+\textbf{Large-scale Burrows-Wheeler compression \\ of sequence data}
+}
+
+
+\author{%
+Jouni Sirén \\[0.5em]
+{\small\begin{minipage}{\linewidth}\begin{center}
+\begin{tabular}{c}
+Wellcome Trust Sanger Institute \\
+Wellcome Trust Genome Campus \\
+Hinxton, Cambridge, CB10 1SA, UK \\
+\url{jouni.siren@iki.fi}
+\end{tabular}
+\end{center}\end{minipage}}
+}
+
+
+\maketitle
+\thispagestyle{empty}
+
+
+\begin{abstract}
+Fooo
+\end{abstract}
+
+
+\Section{Introduction}
+
+Sequence data
+
+BWT, compression, FM-index, applications
+
+ReadServer; multiple BWTs
+
+BWT construction: from SA, space efficient algorithms, DNA sequences
+
+Large scale: speed, space, hardware, efficiency
+
+This paper: terabases
+
+
+\Section{Background}
+
+Definitions
+
+SA, BWT, FM-index
+
+Incremental BWT construction: insert vs extend, batch updates vs dynamic BWT
+
+BWT merging: subcollections, extract and search, build RA, interleave
+
+
+\Section{Space-efficient BWT merging}
+
+search: trie vs individual sequences, multiple threads
+
+buffering: run buffer, thread buffer (RLE, differential encoding, dynamic paged array), merge buffers, to disk
+
+interleaving: multiway merge from disk in one thread, interleave BWTs in another, dynamic paged array
+
+
+\Section{Experiments}
+
+implementation, environment
+
+data: ReadServer BWTs, NA12878 trio
+
+ReadServer: trade-offs with different parameters
+
+trio: ropebwt + this vs ropebwt vs ropebwt2
+
+
+\Section{Discussion}
+
+conclusions
+
+sequence ordering: RLO/RCLO for compression, RLCO for mapping between reverse complements, mapping position for encoding pairing information
+
+remove duplicates
+
+
+%\Section{References}
+%\bibliographystyle{IEEEtran}
+%\bibliography{refs}
+
+
+\end{document}
