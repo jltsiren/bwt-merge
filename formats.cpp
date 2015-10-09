@@ -302,9 +302,9 @@ struct RopeData
     RunBuffer run_buffer;
     for(size_type offset = 0; offset < bytes; offset += MEGABYTE)
     {
-      size_type bytes = std::min(MEGABYTE, bytes - offset);
-      in.read((char*)buffer, bytes);
-      for(size_type i = 0; i < bytes; i++)
+      size_type block_bytes = std::min(MEGABYTE, bytes - offset);
+      in.read((char*)buffer, block_bytes);
+      for(size_type i = 0; i < block_bytes; i++)
       {
         if(run_buffer.add(comp(buffer[i]), length(buffer[i])))
         {
