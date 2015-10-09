@@ -393,6 +393,10 @@ serialize(const FMI& fmi, const std::string& filename, const std::string& format
   {
     fmi.serialize<SDSLFormat>(filename);
   }
+  else if(format == RopeFormat::tag)
+  {
+    fmi.serialize<RopeFormat>(filename);
+  }
   else if(format == SGAFormat::tag)
   {
     fmi.serialize<SGAFormat>(filename);
@@ -426,6 +430,10 @@ load(FMI& fmi, const std::string& filename, const std::string& format)
   else if(format == SDSLFormat::tag)
   {
     fmi.load<SDSLFormat>(filename);
+  }
+  else if(format == RopeFormat::tag)
+  {
+    fmi.load<RopeFormat>(filename);
   }
   else if(format == SGAFormat::tag)
   {

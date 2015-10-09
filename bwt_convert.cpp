@@ -113,20 +113,7 @@ printUsage()
   std::cerr << "  -o format      Write the output in the given format (default: native)" << std::endl;
   std::cerr << std::endl;
 
-  std::cerr << "Formats supporting any alphabetic order:" << std::endl;
-  printFormat<NativeFormat>(std::cerr);
-  std::cerr << std::endl;
-
-  std::cerr << "Formats using the default alphabet:" << std::endl;
-  printFormat<PlainFormatD>(std::cerr);
-  printFormat<SGAFormat>(std::cerr);
-  std::cerr << std::endl;
-
-  std::cerr << "Formats using sorted alphabet:" << std::endl;
-  printFormat<PlainFormatS>(std::cerr);
-  printFormat<RFMFormat>(std::cerr);
-  printFormat<SDSLFormat>(std::cerr);
-  std::cerr << std::endl;
+  printFormats(std::cerr);
 }
 
 //------------------------------------------------------------------------------

@@ -22,6 +22,7 @@
   SOFTWARE.
 */
 
+#include <sstream>
 #include <string>
 #include <unistd.h>
 
@@ -63,8 +64,9 @@ main(int argc, char** argv)
   int c = 0;
   bool verify = false;
   MergeParameters parameters;
-  std::string pattern_name;
-  while((c = getopt(argc, argv, "b:m:r:s:t:d:v:")) != -1)
+  std::string pattern_name, output_format;
+  std::vector<std::string> input_formats;
+  while((c = getopt(argc, argv, "b:m:r:s:t:d:v:i:o:")) != -1)
   {
     switch(c)
     {
@@ -89,24 +91,47 @@ main(int argc, char** argv)
     case 'v':
       pattern_name = optarg; verify = true;
       break;
+    case 'i':
+      tokenize(optarg, input_formats, ',');
+      break;
+    case 'o':
+      output_format = optarg;
+      break;
     case '?':
     default:
       std::exit(EXIT_FAILURE);
     }
   }
-  if(argc - optind < 3)
+
+  int inputs = (argc - 1) - optind;
+  if(inputs < 2)
   {
     std::cerr << "bwt_merge: Output file not specified" << std::endl;
     std::exit(EXIT_FAILURE);
   }
+  if(input_formats.empty())
+  {
+    for(int i = 0; i < inputs; i++) { input_formats.push_back(NativeFormat::tag); }
+  }
+  if(input_formats.size() == 1)
+  {
+    for(int i = 1; i < inputs; i++) { input_formats.push_back(input_formats[0]); }
+  }
+  if(input_formats.size() != (unsigned)inputs)
+  {
+    std::cerr << "bwt_merge: Specified " << input_formats.size() << " formats for "
+              << inputs << " inputs" << std::endl;
+    std::exit(EXIT_FAILURE);
+  }
+  if(output_format.length() == 0) { output_format = NativeFormat::tag; }
   parameters.sanitize();
   Parallel::max_threads = parameters.threads;
 
   for(int i = optind; i < argc - 1; i++)
   {
-    std::cout << "Input:            " << argv[i] << std::endl;
+    std::cout << "Input:            " << argv[i] << " (" << input_formats[i - optind] << ")" << std::endl;
   }
-  std::cout << "Output:           " << argv[argc - 1] << std::endl;
+  std::cout << "Output:           " << argv[argc - 1] << " (" << output_format << ")" << std::endl;
   if(verify)
   {
     std::cout << "Patterns:         " << pattern_name << std::endl;
@@ -126,21 +151,19 @@ main(int argc, char** argv)
     std::cout << std::endl;
   }
 
-  FMI index;
-  index.load<NativeFormat>(argv[optind]); optind++;
+  FMI index; load(index, argv[optind], input_formats[0]);
   verifyFMI(index, "Input", patterns, pre_results);
 
   size_type bytes_added = 0;
-  while(optind < argc - 1)
+  for(int input = 1; input < inputs; input++)
   {
-    FMI increment;
-    increment.load<NativeFormat>(argv[optind]); optind++;
+    FMI increment; load(increment, argv[optind + input], input_formats[input]);
     bytes_added += increment.size();
     verifyFMI(increment, "Input", patterns, pre_results);
     merge(index, increment, parameters);
   }
 
-  index.serialize<NativeFormat>(argv[optind]);
+  serialize(index, argv[argc - 1], output_format);
   verifyFMI(index, "Output", patterns, post_results);
 
   if(verify)
@@ -190,9 +213,17 @@ printUsage()
   std::cerr << "  -t N          Use N parallel threads (default: " << MergeParameters::defaultT()
             << " on this system)" << std::endl;
   std::cerr << std::endl;
+
   std::cerr << "  -d directory  Use the given directory for temporary files (default: .)" << std::endl;
   std::cerr << "  -v filename   Verify by querying with patterns from the given file" << std::endl;
   std::cerr << std::endl;
+
+  std::cerr << "  -i formats    Read the inputs in the given formats (default: native)" << std::endl;
+  std::cerr << "                Multiple comma-separated formats can be provided." << std::endl;
+  std::cerr << "  -o format     Write the output in the given format (default: native)" << std::endl;
+  std::cerr << std::endl;
+
+  printFormats(std::cerr);
 }
 
 //------------------------------------------------------------------------------

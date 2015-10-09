@@ -208,6 +208,8 @@ void printSize(const std::string& header, size_type bytes, size_type data_size, 
 void printTime(const std::string& header, size_type found, size_type matches, size_type bytes, double seconds, size_type indent = DEFAULT_INDENT);
 void printTime(const std::string& header, size_type queries, double seconds, size_type indent = DEFAULT_INDENT);
 
+void tokenize(const std::string& source, std::vector<std::string>& tokens, char delim);
+
 //------------------------------------------------------------------------------
 
 double readTimer();       // Seconds from an arbitrary time point.

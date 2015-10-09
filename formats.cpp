@@ -115,6 +115,9 @@ const std::string RFMFormat::tag = "rfm";
 const std::string SDSLFormat::name = "SDSL format";
 const std::string SDSLFormat::tag = "sdsl";
 
+const std::string RopeFormat::name = "RopeBWT format";
+const std::string RopeFormat::tag = "ropebwt";
+
 const std::string SGAFormat::name = "SGA format";
 const std::string SGAFormat::tag = "sga";
 
@@ -275,7 +278,7 @@ SDSLFormat::write(std::ofstream& out, const BlockArray& data, const NativeHeader
 
 //------------------------------------------------------------------------------
 
-struct SGAData
+struct RopeData
 {
   typedef bwtmerge::comp_type comp_type;
   typedef bwtmerge::size_type length_type;
@@ -289,43 +292,64 @@ struct SGAData
   const static size_type RUN_BITS = 5;
   const static size_type MAX_RUN = 31;
   const static size_type SIGMA = 6;
+
+  static void read(std::ifstream& in, size_type bytes, BlockArray& data, sdsl::int_vector<64>& counts)
+  {
+    data.clear();
+    counts = sdsl::int_vector<64>(SIGMA, 0);
+
+    code_type buffer[MEGABYTE];
+    RunBuffer run_buffer;
+    for(size_type offset = 0; offset < bytes; offset += MEGABYTE)
+    {
+      size_type bytes = std::min(MEGABYTE, bytes - offset);
+      in.read((char*)buffer, bytes);
+      for(size_type i = 0; i < bytes; i++)
+      {
+        if(run_buffer.add(comp(buffer[i]), length(buffer[i])))
+        {
+          Run::write(data, run_buffer.run);
+          counts[run_buffer.run.first] += run_buffer.run.second;
+        }
+      }
+    }
+    run_buffer.flush();
+    Run::write(data, run_buffer.run);
+    counts[run_buffer.run.first] += run_buffer.run.second;
+  }
+
+  static void write(std::ofstream& out, const BlockArray& data)
+  {
+    size_type rle_pos = 0;
+    std::vector<code_type> buffer; buffer.reserve(MEGABYTE);
+    while(rle_pos < data.size())
+    {
+      range_type run = Run::read(data, rle_pos);
+      while(run.second > MAX_RUN)
+      {
+        buffer.push_back(encode(run.first, MAX_RUN));
+        run.second -= MAX_RUN;
+        if(buffer.size() >= MEGABYTE)
+        {
+          out.write((char*)(buffer.data()), buffer.size());
+          buffer.clear();
+        }
+      }
+      buffer.push_back(encode(run.first, run.second));
+      if(buffer.size() >= MEGABYTE)
+      {
+        out.write((char*)(buffer.data()), buffer.size());
+        buffer.clear();
+      }
+    }
+    out.write((char*)(buffer.data()), buffer.size());
+  }
+
+  static void countRuns(ParallelLoop& loop, const BlockArray& data, std::atomic<size_type>& total_runs);
 };
 
 void
-SGAFormat::read(std::ifstream& in, BlockArray& data, sdsl::int_vector<64>& counts)
-{
-  data.clear();
-  counts = sdsl::int_vector<64>(SGAData::SIGMA, 0);
-
-  SGAHeader header; header.load(in);
-  if(!(header.check()))
-  {
-    std::cerr << "SGAFormat::load(): Invalid header!" << std::endl;
-    std::exit(EXIT_FAILURE);
-  }
-
-  SGAData::code_type buffer[MEGABYTE];
-  RunBuffer run_buffer;
-  for(size_type offset = 0; offset < header.bytes; offset += MEGABYTE)
-  {
-    size_type bytes = std::min(MEGABYTE, header.bytes - offset);
-    in.read((char*)buffer, bytes);
-    for(size_type i = 0; i < bytes; i++)
-    {
-      if(run_buffer.add(SGAData::comp(buffer[i]), SGAData::length(buffer[i])))
-      {
-        Run::write(data, run_buffer.run);
-        counts[run_buffer.run.first] += run_buffer.run.second;
-      }
-    }
-  }
-  run_buffer.flush();
-  Run::write(data, run_buffer.run);
-  counts[run_buffer.run.first] += run_buffer.run.second;
-}
-
-void
-countSGARuns(ParallelLoop& loop, const BlockArray& data, std::atomic<size_type>& total_runs)
+RopeData::countRuns(ParallelLoop& loop, const BlockArray& data, std::atomic<size_type>& total_runs)
 {
   while(true)
   {
@@ -339,11 +363,49 @@ countSGARuns(ParallelLoop& loop, const BlockArray& data, std::atomic<size_type>&
       while(rle_pos < limit)
       {
         range_type run = Run::read(data, rle_pos);
-        runs += (run.second + SGAData::MAX_RUN - 1) / SGAData::MAX_RUN;
+        runs += (run.second + MAX_RUN - 1) / MAX_RUN;
       }
     }
     total_runs += runs;
   }
+}
+
+//------------------------------------------------------------------------------
+
+void
+RopeFormat::read(std::ifstream& in, BlockArray& data, sdsl::int_vector<64>& counts)
+{
+  RopeHeader header; header.load(in);
+  if(!(header.check()))
+  {
+    std::cerr << "RopeFormat::load(): Invalid header!" << std::endl;
+    std::exit(EXIT_FAILURE);
+  }
+
+  size_type bytes = fileSize(in) - RopeHeader::SIZE;
+  RopeData::read(in, bytes, data, counts);
+}
+
+void
+RopeFormat::write(std::ofstream& out, const BlockArray& data, const NativeHeader&)
+{
+  RopeHeader header;
+  header.serialize(out);
+  RopeData::write(out, data);
+}
+
+//------------------------------------------------------------------------------
+
+void
+SGAFormat::read(std::ifstream& in, BlockArray& data, sdsl::int_vector<64>& counts)
+{
+  SGAHeader header; header.load(in);
+  if(!(header.check()))
+  {
+    std::cerr << "SGAFormat::load(): Invalid header!" << std::endl;
+    std::exit(EXIT_FAILURE);
+  }
+  RopeData::read(in, header.bytes, data, counts);
 }
 
 void
@@ -352,31 +414,36 @@ SGAFormat::write(std::ofstream& out, const BlockArray& data, const NativeHeader&
   std::atomic<size_type> total_runs(0);
   {
     ParallelLoop loop(0, data.blocks(), Parallel::max_threads, Parallel::max_threads);
-    loop.execute(countSGARuns, std::ref(data), std::ref(total_runs));
+    loop.execute(RopeData::countRuns, std::ref(data), std::ref(total_runs));
   }
 
   SGAHeader header;
   header.bases = info.bases; header.sequences = info.sequences; header.bytes = total_runs;
   header.serialize(out);
 
-  size_type rle_pos = 0;
-  std::vector<SGAData::code_type> buffer; buffer.reserve(MEGABYTE);
-  while(rle_pos < data.size())
-  {
-    range_type run = Run::read(data, rle_pos);
-    while(run.second > SGAData::MAX_RUN)
-    {
-      buffer.push_back(SGAData::encode(run.first, SGAData::MAX_RUN));
-      run.second -= SGAData::MAX_RUN;
-    }
-    buffer.push_back(SGAData::encode(run.first, run.second));
-    if(buffer.size() >= MEGABYTE)
-    {
-      out.write((char*)(buffer.data()), buffer.size());
-      buffer.clear();
-    }
-  }
-  out.write((char*)(buffer.data()), buffer.size());
+  RopeData::write(out, data);
+}
+
+//------------------------------------------------------------------------------
+
+void
+printFormats(std::ostream& stream)
+{
+  stream << "Formats supporting any alphabetic order:" << std::endl;
+  printFormat<NativeFormat>(stream);
+  stream << std::endl;
+
+  stream << "Formats using the default alphabet:" << std::endl;
+  printFormat<PlainFormatD>(stream);
+  printFormat<RopeFormat>(stream);
+  printFormat<SGAFormat>(stream);
+  stream << std::endl;
+
+  stream << "Formats using sorted alphabet:" << std::endl;
+  printFormat<PlainFormatS>(stream);
+  printFormat<RFMFormat>(stream);
+  printFormat<SDSLFormat>(stream);
+  stream << std::endl;
 }
 
 //------------------------------------------------------------------------------
@@ -429,8 +496,42 @@ NativeHeader::setOrder(AlphabeticOrder ao)
 
 std::ostream& operator<<(std::ostream& stream, const NativeHeader& header)
 {
-  return stream << "Native format: " << header.sequences << " sequences, " << header.bases << " bases, "
-                << alphabetName(header.order()) << " alphabet";
+  return stream << NativeFormat::name << ": " << header.sequences << " sequences, "
+                << header.bases << " bases, " << alphabetName(header.order()) << " alphabet";
+}
+
+//------------------------------------------------------------------------------
+
+RopeHeader::RopeHeader() :
+  tag(DEFAULT_TAG)
+{
+}
+
+size_type
+RopeHeader::serialize(std::ostream& out, sdsl::structure_tree_node* v, std::string name) const
+{
+  sdsl::structure_tree_node* child = sdsl::structure_tree::add_child(v, name, sdsl::util::class_name(*this));
+  size_type written_bytes = 0;
+  sdsl::write_member(this->tag, out, child, "tag");
+  sdsl::structure_tree::add_size(child, written_bytes);
+  return written_bytes;
+}
+
+void
+RopeHeader::load(std::istream& in)
+{
+  sdsl::read_member(this->tag, in);
+}
+
+bool
+RopeHeader::check() const
+{
+  return (this->tag == DEFAULT_TAG);
+}
+
+std::ostream& operator<<(std::ostream& stream, const RopeHeader&)
+{
+  return stream << RopeFormat::name;
 }
 
 //------------------------------------------------------------------------------
@@ -472,7 +573,7 @@ SGAHeader::check() const
 
 std::ostream& operator<<(std::ostream& stream, const SGAHeader& header)
 {
-  return stream << "SGA format: " << header.sequences << " sequences, "
+  return stream << SGAFormat::name << ": " << header.sequences << " sequences, "
                 << header.bases << " bases, " << header.bytes << " bytes";
 }
 

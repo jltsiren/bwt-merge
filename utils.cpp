@@ -66,6 +66,14 @@ printTime(const std::string& header, size_type queries, double seconds, size_typ
             << inMicroseconds(seconds / queries) << " µs/query)" << std::endl;
 }
 
+void
+tokenize(const std::string& source, std::vector<std::string>& tokens, char delim)
+{
+  std::istringstream ss(source);
+  std::string token;
+  while(std::getline(ss, token, delim)) { tokens.push_back(token); }
+}
+
 //------------------------------------------------------------------------------
 
 double

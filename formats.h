@@ -81,6 +81,7 @@ std::ostream& operator<<(std::ostream& stream, const NativeHeader& header);
   PlainFormatS  BWT as a character array; AO_SORTED
   RFMFormat     BWT as int_vector<8> of comp values; AO_SORTED
   SDSLFormat    BWT as int_vector<8> of characters; AO_SORTED
+  RopeFormat    RopeBWT; AO_DEFAULT
   SGAFormat     SGA assembler; AO_DEFAULT
 */
 
@@ -134,6 +135,16 @@ struct SDSLFormat
   const static std::string tag;
 };
 
+struct RopeFormat
+{
+  static void read(std::ifstream& in, BlockArray& data, sdsl::int_vector<64>& counts);
+  static void write(std::ofstream& out, const BlockArray& data, const NativeHeader& info);
+  inline static AlphabeticOrder order() { return AO_DEFAULT; }
+
+  const static std::string name;
+  const static std::string tag;
+};
+
 struct SGAFormat
 {
   static void read(std::ifstream& in, BlockArray& data, sdsl::int_vector<64>& counts);
@@ -146,6 +157,8 @@ struct SGAFormat
 
 //------------------------------------------------------------------------------
 
+void printFormats(std::ostream& stream);
+
 template<class Format>
 void
 printFormat(std::ostream& stream)
@@ -156,6 +169,22 @@ printFormat(std::ostream& stream)
 }
 
 //------------------------------------------------------------------------------
+
+struct RopeHeader
+{
+  uint32_t tag;
+
+  const static uint32_t DEFAULT_TAG = 0x06454C52;
+  const static size_type SIZE = 4;
+
+  RopeHeader();
+
+  size_type serialize(std::ostream& out, sdsl::structure_tree_node* v = nullptr, std::string name = "") const;
+  void load(std::istream& in);
+  bool check() const;
+};
+
+std::ostream& operator<<(std::ostream& stream, const RopeHeader& header);
 
 struct SGAHeader
 {
