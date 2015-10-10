@@ -280,25 +280,16 @@ SDSLFormat::write(std::ofstream& out, const BlockArray& data, const NativeHeader
 
 struct RopeData
 {
-  typedef bwtmerge::comp_type comp_type;
-  typedef bwtmerge::size_type length_type;
-  typedef uint8_t             code_type;
-
-  inline static code_type encode(comp_type comp, length_type length) { return (comp << RUN_BITS) | length; }
-  inline static comp_type comp(code_type code) { return (code >> RUN_BITS); }
-  inline static length_type length(code_type code) { return (code & RUN_MASK); }
-
-  const static code_type RUN_MASK = 0x1F;
-  const static size_type RUN_BITS = 5;
   const static size_type MAX_RUN = 31;
   const static size_type SIGMA = 6;
 
+  template<class Coder>
   static void read(std::ifstream& in, size_type bytes, BlockArray& data, sdsl::int_vector<64>& counts)
   {
     data.clear();
     counts = sdsl::int_vector<64>(SIGMA, 0);
 
-    code_type buffer[MEGABYTE];
+    typename Coder::code_type buffer[MEGABYTE];
     RunBuffer run_buffer;
     for(size_type offset = 0; offset < bytes; offset += MEGABYTE)
     {
@@ -306,7 +297,7 @@ struct RopeData
       in.read((char*)buffer, block_bytes);
       for(size_type i = 0; i < block_bytes; i++)
       {
-        if(run_buffer.add(comp(buffer[i]), length(buffer[i])))
+        if(run_buffer.add(Coder::comp(buffer[i]), Coder::length(buffer[i])))
         {
           Run::write(data, run_buffer.run);
           counts[run_buffer.run.first] += run_buffer.run.second;
@@ -318,16 +309,17 @@ struct RopeData
     counts[run_buffer.run.first] += run_buffer.run.second;
   }
 
+  template<class Coder>
   static void write(std::ofstream& out, const BlockArray& data)
   {
     size_type rle_pos = 0;
-    std::vector<code_type> buffer; buffer.reserve(MEGABYTE);
+    std::vector<typename Coder::code_type> buffer; buffer.reserve(MEGABYTE);
     while(rle_pos < data.size())
     {
       range_type run = Run::read(data, rle_pos);
       while(run.second > MAX_RUN)
       {
-        buffer.push_back(encode(run.first, MAX_RUN));
+        buffer.push_back(Coder::encode(run.first, MAX_RUN));
         run.second -= MAX_RUN;
         if(buffer.size() >= MEGABYTE)
         {
@@ -335,7 +327,7 @@ struct RopeData
           buffer.clear();
         }
       }
-      buffer.push_back(encode(run.first, run.second));
+      buffer.push_back(Coder::encode(run.first, run.second));
       if(buffer.size() >= MEGABYTE)
       {
         out.write((char*)(buffer.data()), buffer.size());
@@ -372,6 +364,20 @@ RopeData::countRuns(ParallelLoop& loop, const BlockArray& data, std::atomic<size
 
 //------------------------------------------------------------------------------
 
+struct RopeCoder
+{
+  typedef bwtmerge::comp_type comp_type;
+  typedef bwtmerge::size_type length_type;
+  typedef uint8_t             code_type;
+
+  inline static code_type encode(comp_type comp, length_type length) { return (length << COMP_BITS) | comp; }
+  inline static comp_type comp(code_type code) { return (code & COMP_MASK); }
+  inline static length_type length(code_type code) { return (code >> COMP_BITS); }
+
+  const static code_type COMP_MASK = 0x07;
+  const static size_type COMP_BITS = 3;
+};
+
 void
 RopeFormat::read(std::ifstream& in, BlockArray& data, sdsl::int_vector<64>& counts)
 {
@@ -383,7 +389,7 @@ RopeFormat::read(std::ifstream& in, BlockArray& data, sdsl::int_vector<64>& coun
   }
 
   size_type bytes = fileSize(in) - RopeHeader::SIZE;
-  RopeData::read(in, bytes, data, counts);
+  RopeData::read<RopeCoder>(in, bytes, data, counts);
 }
 
 void
@@ -391,10 +397,24 @@ RopeFormat::write(std::ofstream& out, const BlockArray& data, const NativeHeader
 {
   RopeHeader header;
   header.serialize(out);
-  RopeData::write(out, data);
+  RopeData::write<RopeCoder>(out, data);
 }
 
 //------------------------------------------------------------------------------
+
+struct SGACoder
+{
+  typedef bwtmerge::comp_type comp_type;
+  typedef bwtmerge::size_type length_type;
+  typedef uint8_t             code_type;
+
+  inline static code_type encode(comp_type comp, length_type length) { return (comp << RUN_BITS) | length; }
+  inline static comp_type comp(code_type code) { return (code >> RUN_BITS); }
+  inline static length_type length(code_type code) { return (code & RUN_MASK); }
+
+  const static code_type RUN_MASK = 0x1F;
+  const static size_type RUN_BITS = 5;
+};
 
 void
 SGAFormat::read(std::ifstream& in, BlockArray& data, sdsl::int_vector<64>& counts)
@@ -405,7 +425,7 @@ SGAFormat::read(std::ifstream& in, BlockArray& data, sdsl::int_vector<64>& count
     std::cerr << "SGAFormat::load(): Invalid header!" << std::endl;
     std::exit(EXIT_FAILURE);
   }
-  RopeData::read(in, header.bytes, data, counts);
+  RopeData::read<SGACoder>(in, header.bytes, data, counts);
 }
 
 void
@@ -421,7 +441,7 @@ SGAFormat::write(std::ofstream& out, const BlockArray& data, const NativeHeader&
   header.bases = info.bases; header.sequences = info.sequences; header.bytes = total_runs;
   header.serialize(out);
 
-  RopeData::write(out, data);
+  RopeData::write<SGACoder>(out, data);
 }
 
 //------------------------------------------------------------------------------
