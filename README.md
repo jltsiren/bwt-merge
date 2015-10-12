@@ -109,7 +109,7 @@ There are also other algorithms for building the BWT for large read collections 
 
 * Switched from OpenMP to C++11 threads.
 * More space-efficient rank/select construction for the BWT.
-* Formats: RopeBWT format, faster writing in SGA format.
+* Formats: RopeBWT (new), faster writing in SGA format.
 * `bwt_merge`: Multiple input files, faster RA/BWT merging, multithreaded verification, adjustable input/output formats and temp directory.
 
 ### Version 0.2.1

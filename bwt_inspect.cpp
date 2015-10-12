@@ -31,6 +31,9 @@ using namespace bwtmerge;
 template<class HeaderFormat>
 bool inspect(std::ifstream& in, size_type& total_sequences, size_type& total_bases);
 
+template<>
+bool inspect<RopeHeader>(std::ifstream& in, size_type& total_sequences, size_type& total_bases);
+
 //------------------------------------------------------------------------------
 
 int
@@ -60,6 +63,7 @@ main(int argc, char** argv)
 
     if(inspect<NativeHeader>(in, total_sequences, total_bases)) { continue; }
     if(inspect<SGAHeader>(in, total_sequences, total_bases)) { continue; }
+    if(inspect<RopeHeader>(in, total_sequences, total_bases)) { continue; }
 
     in.close();
     std::cout << "Unknown format" << std::endl;
@@ -83,6 +87,19 @@ inspect(std::ifstream& in, size_type& total_sequences, size_type& total_bases)
   if(!(header.check())) { return false; }
 
   total_sequences += header.sequences; total_bases += header.bases;
+  in.close();
+  std::cout << header << std::endl;
+  return true;
+}
+
+template<>
+bool
+inspect<RopeHeader>(std::ifstream& in, size_type&, size_type&)
+{
+  in.seekg(0);
+  RopeHeader header; header.load(in);
+  if(!(header.check())) { return false; }
+
   in.close();
   std::cout << header << std::endl;
   return true;
