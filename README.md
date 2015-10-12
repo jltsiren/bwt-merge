@@ -6,13 +6,13 @@ If the dataset is up to a few hundred gigabytes in size, it is probably more pra
 
 ## Usage
 
-BWT-merge is based on the [Succinct Data Structures Library 2.0 (SDSL)](https://github.com/simongog/sdsl-lite). To compile, set `SDSL_DIR` in the Makefile to point to your SDSL directory. The program should compile with a relatively new g++ on both Linux and OS X. It has not been tested with other compilers. Comment out the line `OUTPUT_FLAGS=-DVERBOSE_STATUS_INFO` if you do not want the merging tool to output status information to `stderr`.
+BWT-merge is based on the [Succinct Data Structures Library 2.0 (SDSL)](https://github.com/simongog/sdsl-lite). To compile, set `SDSL_DIR` in the Makefile to point to your SDSL directory. The program should compile with g++ 4.7 or later on both Linux and OS X. It has not been tested with other compilers. Comment out the line `OUTPUT_FLAGS=-DVERBOSE_STATUS_INFO` if you do not want the merging tool to output status information to `stderr`.
 
 There are three tools in the package:
 
 `bwt_convert [options] input output` reads a run-length encoded BWT built by the [String Graph Assembler](https://github.com/jts/sga) from file `input` and writes it to file `output` in the native format of BWT-merge. The converted file is often a bit smaller than the input, even though it includes rank/select indexes. The input/output formats can be changed with options `-i format` and `-o format`.
 
-`bwt_inspect input1 [input2 ...]` tries to identify the BWT formats of the input files. If successful, it will also display some basic information about the files. Only the native format and the SGA format are currently supported.
+`bwt_inspect input1 [input2 ...]` tries to identify the BWT formats of the input files. If successful, it will also display some basic information about the files. Only the native format, the RopeBWT format, and the SGA format are currently supported.
 
 `bwt_merge [options] input1 input2 [input3 ...] output` reads the input BWT files, merges them, and writes the merged BWT to file `output`. The sequences from each input file are inserted after the sequences from the BWTs that have already been merged. In most cases, the input files should be given from the largest to the smallest. There are several options:
 
