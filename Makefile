@@ -7,7 +7,7 @@ SDSL_DIR=../sdsl-lite
 # Verbose output during index construction etc.
 OUTPUT_FLAGS=-DVERBOSE_STATUS_INFO
 
-OTHER_FLAGS=$(RUSAGE_FLAGS) $(OUTPUT_FLAGS)
+OTHER_FLAGS=$(RUSAGE_FLAGS) $(OUTPUT_FLAGS) -pthread
 
 include $(SDSL_DIR)/Make.helper
 CXX_FLAGS=$(MY_CXX_FLAGS) $(OTHER_FLAGS) $(MY_CXX_OPT_FLAGS) -I$(INC_DIR)
