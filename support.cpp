@@ -23,6 +23,7 @@
 */
 
 #include <cstring>
+#include <sys/mman.h>
 
 #include "support.h"
 
@@ -249,29 +250,18 @@ void
 BlockArray::copy(const BlockArray& source)
 {
   this->clear();
-  this->data = std::vector<value_type*>(source.data.size());
-  this->bytes = source.bytes;
 
-  for(size_type i = 0; i < this->data.size(); i++)
+  this->bytes = source.bytes;
+  this->data.reserve(source.data.size());
+  for(size_type i = 0; i < source.data.size(); i++)
   {
-    if(source.data[i] == 0) { this->data[i] = 0; }
+    if(source.data[i] == 0) { this->data.push_back(0); }
     else
     {
-      this->data[i] = new value_type[BLOCK_SIZE];
+      this->allocateBlock();
       std::memcpy((void*)(this->data[i]), (void*)(source.data[i]), BLOCK_SIZE);
     }
   }
-}
-
-void
-BlockArray::clear()
-{
-  for(size_type i = 0; i < this->data.size(); i++)
-  {
-    this->clear(i);
-  }
-  this->data.clear();
-  this->bytes = 0;
 }
 
 void
@@ -322,13 +312,41 @@ void
 BlockArray::load(std::istream& in)
 {
   this->clear();
+
   sdsl::read_member(this->bytes, in);
-  this->data = std::vector<value_type*>((this->bytes + BLOCK_SIZE - 1) / BLOCK_SIZE, 0);
-  for(size_type i = 0; i < this->data.size(); i++)
+  size_type total_blocks = (this->bytes + BLOCK_SIZE - 1) / BLOCK_SIZE;
+  this->data.reserve(total_blocks);
+  for(size_type i = 0; i < total_blocks; i++)
   {
-    this->data[i] = new byte_type[BLOCK_SIZE];
+    this->allocateBlock();
     in.read((char*)(this->data[i]), BLOCK_SIZE);
   }
+}
+
+void
+BlockArray::clear()
+{
+  for(size_type i = 0; i < this->data.size(); i++)
+  {
+    this->clear(i);
+  }
+  this->data.clear();
+  this->bytes = 0;
+}
+
+void
+BlockArray::allocateBlock()
+{
+  value_type* ptr = (value_type*)mmap(0, BLOCK_SIZE, PROT_READ | PROT_WRITE, MAP_ANON | MAP_PRIVATE, -1, 0);
+  this->data.push_back(ptr);
+}
+
+void
+BlockArray::clear(size_type _block)
+{
+  if(this->data[_block] == 0) { return; }
+  munmap((void*)(this->data[_block]), BLOCK_SIZE);
+  this->data[_block] = 0;
 }
 
 //------------------------------------------------------------------------------

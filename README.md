@@ -41,7 +41,7 @@ The native format of BWT-merge uses numeric values 0-5 as its internal alphabet.
 |`plain_default`|default |array of characters
 |`plain_sorted` |sorted  |array of characters
 |`rfm`          |sorted  |[Relative FM-index](https://github.com/jltsiren/relative-fm): `int_vector_buffer<8>` of comp values
-|`ropebwt`      |default |[RopeBWT](https://github.com/lh3/ropebwt): byte array with 3 bits for the character and 5 bits for the length of the run (co
+|`ropebwt`      |default |[RopeBWT](https://github.com/lh3/ropebwt): byte array with 3 bits for the character and 5 bits for the length of the run
 |`sdsl`         |sorted  |[SDSL](https://github.com/simongog/sdsl-lite): `int_vector_buffer<8>` of characters
 |`sga`          |default |[SGA](https://github.com/jts/sga): byte array with 3 bits for the character and 5 bits for the length of the run
 

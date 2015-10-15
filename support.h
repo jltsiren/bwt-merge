@@ -111,16 +111,13 @@ public:
   inline static size_type offset(size_type i) { return i % BLOCK_SIZE; }
 
   void clear();
-
-  void clear(size_type _block)
-  {
-    delete[] this->data[_block]; this->data[_block] = 0;
-  }
+  void allocateBlock();
+  void clear(size_type _block);
 
   /*
     Removes the block before block(i).
   */
-  void clearUntil(size_type i)
+  inline void clearUntil(size_type i)
   {
     if(block(i) > 0 && this->data[block(i) - 1] != 0) { this->clear(block(i) - 1); }
   }
@@ -137,7 +134,7 @@ public:
 
   inline void push_back(value_type value)
   {
-    if(offset(this->bytes) == 0) { this->data.push_back(new value_type[BLOCK_SIZE]); }
+    if(offset(this->bytes) == 0) { this->allocateBlock(); }
     (*this)[this->bytes] = value;
     this->bytes++;
   }

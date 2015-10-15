@@ -162,6 +162,7 @@ struct RABuffer
 
   RABuffer()
   {
+    this->buffer.reserve(BUFFER_SIZE);
     this->finished = false;
   }
 
@@ -215,6 +216,7 @@ void
 mergeBWT(BWT& a, BWT& b, BWT& result, sdsl::int_vector<64>& counts, RABuffer& ra_buffer)
 {
   std::vector<RABuffer::run_type> in_buffer;
+  in_buffer.reserve(RABuffer::BUFFER_SIZE);
   RunBuffer out_buffer;
   bool ra_finished = false;
   size_type a_rle_pos = 0, b_rle_pos = 0;
@@ -292,10 +294,8 @@ BWT::BWT(BWT& a, BWT& b, RankArray& ra)
   sdsl::int_vector<64> counts(SIGMA, 0);
 
   std::thread producer(mergeRA, std::ref(ra), std::ref(ra_buffer));
-  std::thread consumer(mergeBWT, std::ref(a), std::ref(b), std::ref(*this),
-    std::ref(counts), std::ref(ra_buffer));
+  mergeBWT(a, b, *this, counts, ra_buffer);
   producer.join();
-  consumer.join();
 
 #ifdef VERBOSE_STATUS_INFO
   double midpoint = readTimer();
