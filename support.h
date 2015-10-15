@@ -92,7 +92,7 @@ class BlockArray
 public:
   typedef bwtmerge::size_type size_type;
   typedef bwtmerge::byte_type value_type;
-  const static size_type BLOCK_SIZE = MEGABYTE;
+  const static size_type BLOCK_SIZE = 8 * MEGABYTE;
 
   BlockArray();
   BlockArray(const BlockArray& source);
