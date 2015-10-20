@@ -8,17 +8,45 @@
 \usepackage{textgreek}
 \usepackage{url}
 
-
 \newlength{\figurewidth}
 \newlength{\smallfigurewidth}
 \setlength{\smallfigurewidth}{2.75in}
 \setlength{\figurewidth}{6in}
 
+
+% Mathematics
+\newcommand{\set}[1]{\ensuremath{\{ #1 \}}}
+\newcommand{\abs}[1]{\ensuremath{\lvert #1 \rvert}}
+\newcommand{\Oh}{\ensuremath{\mathsf{O}}}
+\newcommand{\oh}{\ensuremath{\mathsf{o}}}
+\newcommand{\Th}{\ensuremath{\mathsf{\Theta}}}
+
+% Structures
+\newcommand{\SA}{\textsf{SA}}
+\newcommand{\ISA}{\textsf{ISA}}
+\newcommand{\BWT}{\textsf{BWT}}
+\newcommand{\FMI}{\textsf{FMI}}
+\newcommand{\C}{\textsf{C}}
+\newcommand{\mSA}{\ensuremath{\mathsf{SA}}}
+\newcommand{\mISA}{\ensuremath{\mathsf{ISA}}}
+\newcommand{\mBWT}{\ensuremath{\mathsf{BWT}}}
+\newcommand{\mC}{\ensuremath{\mathsf{C}}}
+
+% Operations
+\newcommand{\LF}{\textsf{LF}}
+\newcommand{\rank}{\textsf{rank}}
+\newcommand{\select}{\textsf{select}}
+\newcommand{\mLF}{\ensuremath{\mathsf{LF}}}
+\newcommand{\mrank}{\ensuremath{\mathsf{rank}}}
+\newcommand{\mselect}{\ensuremath{\mathsf{select}}}
+
+
+
 \begin{document}
 
 \title
 {\large
-\textbf{Large-scale Burrows-Wheeler compression \\ of sequence data}
+\textbf{Burrows-Wheeler transform for terabases}
 }
 
 
@@ -48,29 +76,80 @@ Fooo
 
 Sequence data
 
-BWT, compression, FM-index, applications
+BWT, compression, FM-index, applications, repetitive, rle
 
 ReadServer; multiple BWTs
 
-BWT construction: from SA, space efficient algorithms, DNA sequences
+Large scale construction: speed, space, hardware, efficiency
 
-Large scale: speed, space, hardware, efficiency
+BWT construction: from SA \cite{Mori2008,Nong2011}
+external SA \cite{Gonnet1992,Bingmann2013,Kaerkkaeinen2014a,Nong2014,Kaerkkaeinen2015a}
+space efficient algorithms \cite{Hon2007,Kaerkkaeinen2007,Siren2009}
+external BWT \cite{Ferragina2012,Beller2013}
+
+Specialized for DNA: \cite{Bauer2013,Liu2014,Li2014a,Pantaleoni2014,Wang2015}
 
 This paper: terabases
 
 
 \Section{Background}
 
-Definitions
+A \emph{string} $S[1,n] = s_{1} \dotsm s_{n}$ is a sequence of \emph{characters} over an \emph{alphabet} $\Sigma = \set{1, \dotsc, \sigma}$. For indexing purposes, we consider \emph{text} strings $T[1,n]$ terminated by an endmarker $T[n] = \$ = 0$ not occurring anywhere else in the text. \emph{Binary} sequences are strings over the alphabet $\set{0, 1}$. A \emph{substring} of string $S$ is a sequence of the form $S[i,j] = s_{i} \dotsm s_{j}$. Substrings of the type $S[1,j]$ and $S[i,n]$ are called \emph{prefixes} and \emph{suffixes}, respectively.
 
-SA, BWT, FM-index
+The \emph{suffix array} (\SA) \cite{Manber1993} is a simple full-text index of a string. Given a text $T$, its suffix array $\mSA_{T}[1,n]$ is an array of pointers to the suffixes of the text in \emph{lexicographic order}. (If the text is evident from the context, we will omit it and write just \SA.) We can build the suffix array in $\Oh(n)$ time using approximately $n(\log n + \log \sigma + 2)$ bits of space, or just $2n$ bits of working space over the text and the suffix array \cite{Nong2011}. Given a \emph{pattern} $P$, we can find the \emph{lexicographic range} $[sp,ep]$ of suffixes of the text prefixed by the pattern in $\Oh(\abs{P} \log n)$ time by binary searching in the suffix array. The corresponding range of pointers $\mSA[sp,ep]$ lists the \emph{occurrences} of the pattern in the text.
 
-Incremental BWT construction: insert vs extend, batch updates vs dynamic BWT
+While the suffix array is simple, it requires several times more memory than the original text. For large texts, this can be a serious drawback. The more space-efficient alternatives to the suffix array are based on the \emph{Burrows-Wheeler transform} (\BWT) \cite{Burrows1994}, an easily reversible permutation of the text with a similar combinatorial structure to the suffix array. Given a text $T[1,n]$ and its suffix array, we can easily produce the \BWT{} as $\mBWT[i] = T[\mSA[i]-1]$ (with $\mBWT[i] = T[n]$, if $\mSA[i] = 1$).
+
+A key observation is that if suffix $X$ precedes suffix $Y$ in lexicographic order, suffix $cX$ will also precede suffix $cY$, for any character $c$. Therefore, if $\mBWT[i]$ is the $j$\nobreakdash-th occurrence of character $c$ in the \BWT, and $\mSA[i]$ points to suffix $X$, suffix $cX$ is the $j$\nobreakdash-th suffix starting with $c$ in lexicographic order. This forms the essence of \LF\emph{\nobreakdash-mapping}. The suffix preceding $T[\mSA[i],n]$ in text order is the one starting at $\mSA[\mLF(i)]$, where
+$$
+\mLF(i) = \mC[\mBWT[i]] + \mBWT.\mrank(i, \mBWT[i]),
+$$
+$\mC[c]$ is the number of suffixes starting with a character smaller than $c$, and $S.\mrank(i,c)$ is the number of occurrences of character $c$ in the prefix $S[1,i]$. For searching, we use a more general definition of \LF\nobreakdash-mapping:
+$$
+\mLF(i,c) = \mC[c] + \mBWT.\mrank(i, c),
+$$
+which tells the number of suffixes $X$ of text $T$ with $X \le c T[\mSA[i],n]$ in lexicographic order. This is known as the \emph{lexicographic rank} $\mrank(cT[\mSA[i],n], T)$ of string $cT[\mSA[i],n]$ among the suffixes of text $T$.
+
+The \emph{FM-index} (\FMI) \cite{Ferragina2005a} uses the Burrows-Wheeler transform as a full-text index by augmenting it with a few additional structures. The lexicographic range $[sp,ep]$ corresponding to pattern $P$ is found through \emph{backward searching}. Let $[sp_{i},ep_{i}]$ be the lexicographic range of suffixes of text $T$ matching suffix $P[i, \abs{P}]$ of the pattern. We can find $[sp_{i-1},ep_{i-1}]$ as
+$$
+[sp_{i-1},ep_{i-1}] = [\mLF(sp_{i}-1, P[i-1]) + 1, \mLF(ep_{i}, P[i-1])].
+$$
+By starting from $[sp_{\abs{P}}, ep_{\abs{P}}] = [\mC[P[\abs{P}]]+1, \mC[P[\abs{P}]+1]]$, we can find the lexicographic range of suffixes starting with the pattern in $\Oh(\abs{P} \cdot t_{r})$ time, where $t_{r}$ is the time required to answer \rank{} queries on the \BWT. In practice, the time complexity ranges from $\Oh(\abs{P})$ to $\Oh(\abs{P} \log n)$, depending on the encoding.
+
+In order to find the occurrences of the pattern in the text, the FM-index \emph{samples} some suffix array pointers, and uses \LF\nobreakdash-mapping to derive the unsampled pointers. The set of sampled pointers always includes a pointer to the beginning of each text. If $\mSA[i]$ is not sampled, the FM-index proceeds to $\mLF(i)$ and continues from there. If $\mSA[\mLF^{k}(i)]$ is the first sample encountered, $\mSA[i] = \mSA[\mLF^{k}(i)] + k$. Depending on the way the samples are selected, we may need a binary sequence to mark the pointers that have been sampled.
+
+Assume that we have an ordered \emph{collection} of texts $\mathcal{A} = (T_{1}, \dotsc, T_{m})$ of total length $n = \abs{\mathcal{A}} = \sum_{i} \abs{T_{i}}$. We want to build a (generalized) \BWT{} for the collection. The usual way is to assume that the endmarkers of all text are distinct, with the one at the end of text $T_{i}$ having character value $(0,i)$. This guarantees that each suffix has a unique lexicographic rank among the suffixes of the collection. We still encode each endmarker as $0$ in the \BWT{} in order to save space. Because of this, \LF\nobreakdash-mapping does not work with $c = 0$, and we cannot match patterns spanning text boundaries.
+
+With large collections of short texts (such as short reads), there are more space-efficient alternatives to sampling. Because all endmarkers had distinct character values during sorting, we know that $\mSA[i]$ (with $i \le m)$ points to the endmarker of text $T_{i}$. To reach the endmarker, we iterate
+$$
+\Psi(i) = \mBWT.\mselect(i - \mC[c], c),
+$$
+where $c$ is the largest character value with $\mC[c] < i$ and $S.\mselect(i,c)$ finds the $i$\nobreakdash-th occurrence of character $c$ in string $S$. If $k \ge 0$ is the smallest value for which $j = \Psi^{k}(i) \le m$, we know that $\mSA[i]$ points to offset $\abs{T_{j}} - k$ in text $T_{j}$.
+
+
+\Section{Space-efficient \BWT{} construction}
+
+The FM-index was introduced as a more space-efficient alternative to the suffix array. If we have to build a suffix array first in order to construct an FM-index, we lose a large part of the benefits, and index construction becomes the overall bottleneck. To overcome this bottleneck, we can use \emph{incremental construction algorithms} that build the FM-index directly. Some of them use an adjustable amount of working space on top of the FM-index, making it possible to index text colletions that are too large to fit in memory in an uncompressed form.
+
+Assume that we have built the \BWT{} of text $T$, and we want to \emph{transform} the \BWT{} into that of text $cT$, where $c$ is a character. The transformation \cite{Hon2007} is quite straightforward. We first find the pointer $\mSA[i]$ to the beginning of text $T$ (the position $i$, where $\mBWT[i] = 0$). Then we determine the lexicographic rank $j = \mrank(cT, T) = \mC[c] + \mBWT.\mrank(i, c)$ of text $cT$ among the suffixes of text $T$. Finally we transform the \BWT{} by \emph{replacing} the endmarker at $\mBWT[i]$ with the inserted character $c$, and by \emph{inserting} a new endmarker between $\mBWT[j]$ and $\mBWT[j+1]$.
+
+There are six basic ways of using the transformation in a \BWT{} construction algorithm. Instead of inserting a single character at a time, we may use \emph{batch updates} and transform the \BWT{} of text $T$ directly into that of text $XT$, where $X$ is any string \cite{Hon2007}. We can start with the \BWT{}s of text collections $\mathcal{A}$ and $\mathcal{B}$, and \emph{merge} them into the \BWT{} of collection $\mathcal{A} \cup \mathcal{B}$ \cite{Siren2009}. We can also have the \BWT{} of a text collection, and \emph{extend} multiple texts by inserting a new character to the beginning of each of them in a single update \cite{Bauer2013}. In all three cases, we may use either \emph{static} or \emph{dynamic} \cite{Chan2007} structures for the \BWT.
+
+
+\Section{Merging \BWT{}s of text collections}
+
+% FIXME: a running example with 2 texts
+Assume that we have
+
+The \BWT{} merging algorithm \cite{Siren2009} consists of three phases.
+
 
 BWT merging: subcollections, extract and search, build RA, interleave
+rank array / interleaving bitvector / gap array \cite{Gonnet1992,Ferragina2012}
 
 
-\Section{Space-efficient BWT merging}
+
+\Section{Large-scale \BWT{} merging}
 
 search: trie vs individual sequences, multiple threads
 
@@ -99,9 +178,9 @@ sequence ordering: RLO/RCLO for compression, RLCO for mapping between reverse co
 remove duplicates
 
 
-%\Section{References}
-%\bibliographystyle{IEEEtran}
-%\bibliography{refs}
+\Section{References}
+\bibliographystyle{IEEEtran}
+\bibliography{paper}
 
 
 \end{document}

@@ -108,6 +108,8 @@ There are also other algorithms for building the BWT for large read collections 
 ### Current version
 
 * Switched from OpenMP to C++11 threads.
+* Switched from `new` / `malloc()` to `mmap()`, reducing multithreaded memory usage significantly.
+* `BlockArray` uses now 8 MB blocks instead of 1 MB blocks, changing the native file format.
 * More space-efficient rank/select construction for the BWT.
 * Formats: RopeBWT (new), faster writing in SGA format.
 * `bwt_merge`: Multiple input files, faster RA/BWT merging, multithreaded verification, adjustable input/output formats and temp directory.
