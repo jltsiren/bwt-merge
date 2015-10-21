@@ -27,10 +27,12 @@
 \newcommand{\BWT}{\textsf{BWT}}
 \newcommand{\FMI}{\textsf{FMI}}
 \newcommand{\C}{\textsf{C}}
+\newcommand{\RA}{\textsf{RA}}
 \newcommand{\mSA}{\ensuremath{\mathsf{SA}}}
 \newcommand{\mISA}{\ensuremath{\mathsf{ISA}}}
 \newcommand{\mBWT}{\ensuremath{\mathsf{BWT}}}
 \newcommand{\mC}{\ensuremath{\mathsf{C}}}
+\newcommand{\mRA}{\ensuremath{\mathsf{RA}}}
 
 % Operations
 \newcommand{\LF}{\textsf{LF}}
@@ -39,6 +41,10 @@
 \newcommand{\mLF}{\ensuremath{\mathsf{LF}}}
 \newcommand{\mrank}{\ensuremath{\mathsf{rank}}}
 \newcommand{\mselect}{\ensuremath{\mathsf{select}}}
+
+% Shorthands
+\newcommand{\Acoll}{\ensuremath{\mathcal{A}}}
+\newcommand{\Bcoll}{\ensuremath{\mathcal{B}}}
 
 
 
@@ -84,7 +90,7 @@ Large scale construction: speed, space, hardware, efficiency
 
 BWT construction: from SA \cite{Mori2008,Nong2011}
 external SA \cite{Gonnet1992,Bingmann2013,Kaerkkaeinen2014a,Nong2014,Kaerkkaeinen2015a}
-space efficient algorithms \cite{Hon2007,Kaerkkaeinen2007,Siren2009}
+space efficient algorithms \cite{Hon2007,Kaerkkaeinen2007,Siren2009,Okanohara2009}
 external BWT \cite{Ferragina2012,Beller2013}
 
 Specialized for DNA: \cite{Bauer2013,Liu2014,Li2014a,Pantaleoni2014,Wang2015}
@@ -118,13 +124,18 @@ By starting from $[sp_{\abs{P}}, ep_{\abs{P}}] = [\mC[P[\abs{P}]]+1, \mC[P[\abs{
 
 In order to find the occurrences of the pattern in the text, the FM-index \emph{samples} some suffix array pointers, and uses \LF\nobreakdash-mapping to derive the unsampled pointers. The set of sampled pointers always includes a pointer to the beginning of each text. If $\mSA[i]$ is not sampled, the FM-index proceeds to $\mLF(i)$ and continues from there. If $\mSA[\mLF^{k}(i)]$ is the first sample encountered, $\mSA[i] = \mSA[\mLF^{k}(i)] + k$. Depending on the way the samples are selected, we may need a binary sequence to mark the pointers that have been sampled.
 
-Assume that we have an ordered \emph{collection} of texts $\mathcal{A} = (T_{1}, \dotsc, T_{m})$ of total length $n = \abs{\mathcal{A}} = \sum_{i} \abs{T_{i}}$. We want to build a (generalized) \BWT{} for the collection. The usual way is to assume that the endmarkers of all text are distinct, with the one at the end of text $T_{i}$ having character value $(0,i)$. This guarantees that each suffix has a unique lexicographic rank among the suffixes of the collection. We still encode each endmarker as $0$ in the \BWT{} in order to save space. Because of this, \LF\nobreakdash-mapping does not work with $c = 0$, and we cannot match patterns spanning text boundaries.
+Assume that we have an ordered \emph{collection} of texts $\Acoll = (T_{1}, \dotsc, T_{m})$ of total length $n = \abs{\Acoll} = \sum_{i} \abs{T_{i}}$. We want to build a (generalized) \BWT{} for the collection. The usual way is to assume that the endmarkers of all text are distinct, with the one at the end of text $T_{i}$ having character value $(0,i)$. This guarantees that each suffix has a unique lexicographic rank among the suffixes of the collection. We still encode each endmarker as $0$ in the \BWT{} in order to save space. Because of this, \LF\nobreakdash-mapping does not work with $c = 0$, and we cannot match patterns spanning text boundaries.
 
 With large collections of short texts (such as short reads), there are more space-efficient alternatives to sampling. Because all endmarkers had distinct character values during sorting, we know that $\mSA[i]$ (with $i \le m)$ points to the endmarker of text $T_{i}$. To reach the endmarker, we iterate
 $$
 \Psi(i) = \mBWT.\mselect(i - \mC[c], c),
 $$
 where $c$ is the largest character value with $\mC[c] < i$ and $S.\mselect(i,c)$ finds the $i$\nobreakdash-th occurrence of character $c$ in string $S$. If $k \ge 0$ is the smallest value for which $j = \Psi^{k}(i) \le m$, we know that $\mSA[i]$ points to offset $\abs{T_{j}} - k$ in text $T_{j}$.
+
+We can \emph{extract} text $T_{i}$ in $\Oh(\abs{T_{i}} \cdot t_{r})$ time by using \LF\nobreakdash-mapping \cite{Burrows1994}. We start from the endmarker at $\mBWT[i]$ and extract the text backwards as
+$$
+T_{i}[\abs{T_{i}} - j] = \mBWT[\LF^{j-1}(i)] \,\, \textrm{for} \,\, 1 \le j < \abs{T_{i}}.
+$$
 
 
 \Section{Space-efficient \BWT{} construction}
@@ -133,23 +144,26 @@ The FM-index was introduced as a more space-efficient alternative to the suffix 
 
 Assume that we have built the \BWT{} of text $T$, and we want to \emph{transform} the \BWT{} into that of text $cT$, where $c$ is a character. The transformation \cite{Hon2007} is quite straightforward. We first find the pointer $\mSA[i]$ to the beginning of text $T$ (the position $i$, where $\mBWT[i] = 0$). Then we determine the lexicographic rank $j = \mrank(cT, T) = \mC[c] + \mBWT.\mrank(i, c)$ of text $cT$ among the suffixes of text $T$. Finally we transform the \BWT{} by \emph{replacing} the endmarker at $\mBWT[i]$ with the inserted character $c$, and by \emph{inserting} a new endmarker between $\mBWT[j]$ and $\mBWT[j+1]$.
 
-There are six basic ways of using the transformation in a \BWT{} construction algorithm. Instead of inserting a single character at a time, we may use \emph{batch updates} and transform the \BWT{} of text $T$ directly into that of text $XT$, where $X$ is any string \cite{Hon2007}. We can start with the \BWT{}s of text collections $\mathcal{A}$ and $\mathcal{B}$, and \emph{merge} them into the \BWT{} of collection $\mathcal{A} \cup \mathcal{B}$ \cite{Siren2009}. We can also have the \BWT{} of a text collection, and \emph{extend} multiple texts by inserting a new character to the beginning of each of them in a single update \cite{Bauer2013}. In all three cases, we may use either \emph{static} or \emph{dynamic} \cite{Chan2007} structures for the \BWT.
+There are six basic ways of using the transformation in a \BWT{} construction algorithm. Instead of inserting a single character at a time, we may use \emph{batch updates} and transform the \BWT{} of text $T$ directly into that of text $XT$, where $X$ is any string \cite{Hon2007}. We can start with the \BWT{}s of text collections $\Acoll$ and $\Bcoll$, and \emph{merge} them into the \BWT{} of collection $\Acoll \cup \Bcoll$ \cite{Siren2009}. We can also have the \BWT{} of a text collection, and \emph{extend} multiple texts by inserting a new character to the beginning of each of them in a single update \cite{Bauer2013}. In all three cases, we may use either \emph{static} or \emph{dynamic} \cite{Chan2007} structures for the \BWT.
 
 
 \Section{Merging \BWT{}s of text collections}
 
 % FIXME: a running example with 2 texts
-Assume that we have
+Assume that we have two text collections $\Acoll$ and $\Bcoll$ of total length $n_{\Acoll}$ and $n_{\Bcoll}$, respectively, and that we have already built \BWT{}s for them. The algorithm for merging $\mBWT_{\Acoll}$ and $\mBWT_{\Bcoll}$ into $\mBWT_{\Acoll \cup \Bcoll}$ works in three phases \cite{Siren2009}:
+\begin{enumerate}
+\item \textbf{Search.} We search for all texts in collection $\Bcoll$ using $\mBWT_{\Acoll}$ and output the lexicographic rank $\mrank(X, \Acoll)$ for each suffix $X$ of collection $\Bcoll$. This takes $\Oh(n_{\Bcoll} t_{r})$ time. If we do not have collection $\Bcoll$ in plain form, we can extract the texts from $\mBWT_{\Bcoll}$ in the same asymptotic time.
+\item \textbf{Sort.} We sort the ranks produced in the search phase to build the \emph{rank array} (\RA) of collection $\Bcoll$ relative to collection $\Acoll$. The rank array is defined as $\mRA_{\Bcoll \mid \Acoll}[i] = \mrank(X, \Acoll)$, where $X$ is the suffix pointed by $\mSA_{\Bcoll}[i]$. The array requires $n_{\Bcoll} \log n_{\Acoll}$ bits of space, and we can build it in $\Oh(sort(n_{\Bcoll}, n_{\Acoll}))$ time, where $sort(n, u)$ is the time required to sort $n$ integers from universe $[0,u]$.
+\item \textbf{Merge.} We interleave $\mBWT_{\Acoll}$ and $\mBWT_{\Bcoll}$ according to the rank array. If $\mRA_{\Bcoll \mid \Acoll}[i] = j$, the merged \BWT{} will have $j$ characters from $\mBWT_{\Acoll}$ before $\mBWT_{\Bcoll}[i]$. This phase takes $\Oh(n_{\Acoll} + n_{\Bcoll})$ time and uses $\Oh(b)$ bits of working space, where $b$ is the size of virtual memory pages.
+\end{enumerate}
+The overall time complexity of \BWT{} merging is $\Oh(n_{\Acoll} + n_{\Bcoll} t_{r} + sort(n_{\Bcoll}, n_{\Acoll}))$. The algorithm uses $n_{\Bcoll} \log n_{\Acoll} + \Oh(b)$ bits of working space in addition to the \BWT{}s, the structures required to use them as FM-indexes, and the working space used by the sorting algorithm.
 
-The \BWT{} merging algorithm \cite{Siren2009} consists of three phases.
-
-
-BWT merging: subcollections, extract and search, build RA, interleave
-rank array / interleaving bitvector / gap array \cite{Gonnet1992,Ferragina2012}
-
+In an alternative approach, we build the \emph{interleaving bitvector} $B_{\Acoll \cup \Bcoll}$. The bitvector is a binary sequence of length $n_{\Acoll} + n_{\Bcoll}$ and encodes the same information as the rank array. We set $B_{\Acoll \cup \Bcoll}[i + \mRA_{\Bcoll \mid \Acoll}[i]] = 1$ for $1 \le i \le n_{\Bcoll}$. If we extract the texts from $\mBWT_{\Bcoll}$ in the search phase, this can be done directly using the information available at that point. This approach uses $\Oh(n_{\Acoll} + n_{\Bcoll} t_{r})$ time and $n_{\Acoll} + n_{\Bcoll} + \Oh(b)$ bits of working space.
 
 
 \Section{Large-scale \BWT{} merging}
+
+main problem: memory size may be $\oh(\min(n_{\Bcoll} \log n_{\Acoll}, n_{\Acoll} + n_{\Bcoll}))$ bits even if a run-length encoded \BWT{} fits in memory; space overhead from dynamic representations also too large
 
 search: trie vs individual sequences, multiple threads
 
