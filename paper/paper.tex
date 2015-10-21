@@ -84,7 +84,7 @@ Sequence data
 
 BWT, compression, FM-index, applications, repetitive, rle
 
-ReadServer; multiple BWTs
+ReadServer; multiple BWTs due to construction issues; less BWTs would mean less memory, less querying
 
 Large scale construction: speed, space, hardware, efficiency
 
@@ -165,18 +165,32 @@ In an alternative approach, we build the \emph{interleaving bitvector} $B_{\Acol
 
 main problem: memory size may be $\oh(\min(n_{\Bcoll} \log n_{\Acoll}, n_{\Acoll} + n_{\Bcoll}))$ bits even if a run-length encoded \BWT{} fits in memory; space overhead from dynamic representations also too large
 
+sort is interleaved with search and merge
+
 search: trie vs individual sequences, multiple threads
 
-buffering: run buffer, thread buffer (RLE, differential encoding, dynamic paged array), merge buffers, to disk
+buffering: run buffer, thread buffer (RLE, differential encoding), merge buffers, to disk
 
-interleaving: multiway merge from disk in one thread, interleave BWTs in another, dynamic paged array
+interleaving: multiway merge from disk in one thread, interleave BWTs in another
+
+
+\Section{Implementation}
+
+C++, compiler, github
+
+details of run-length encoding of BWT, RA
+
+number of threads
+
+use 8~MB blocks instead of virtual memory pages
 
 
 \Section{Experiments}
 
-implementation, environment
+environment
 
-data: ReadServer BWTs, NA12878 trio
+data: ReadServer BWTs, NA12878 trio \cite{1000GP2015}
+error correction using bfc \cite{Li2015}
 
 ReadServer: trade-offs with different parameters
 
@@ -187,7 +201,7 @@ trio: ropebwt + this vs ropebwt vs ropebwt2
 
 conclusions
 
-sequence ordering: RLO/RCLO for compression, RLCO for mapping between reverse complements, mapping position for encoding pairing information
+sequence ordering: original orderin may be important, RLO/RCLO for compression, RLCO for mapping between reverse complements, mapping position for encoding pairing information
 
 remove duplicates
 
