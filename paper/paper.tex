@@ -49,6 +49,8 @@
 % Names
 \newcommand{\BWTmerge}{\textsf{BWT\nobreakdash-merge}}
 \newcommand{\sdarray}{\textsf{sdarray}}
+\newcommand{\CEU}{\textsf{CEU}}
+\newcommand{\RS}{\textsf{RS}}
 
 
 
@@ -78,7 +80,7 @@ Hinxton, Cambridge, CB10 1SA, UK \\
 
 
 \begin{abstract}
-Fooo
+In order to avoid the reference bias introduced by mapping reads to a reference genome, bioinformaticians are investigating reference-free methods for analyzing sequenced genomes. With large projects sequencing thousands of individuals, this raises the need for tools capable of processing terabases of sequence data. A key method is the Burrows-Wheeler transform (BWT), which is widely used for compressing and indexing reads. We propose a practical algorithm for building the BWT of a large read collection by merging the BWTs of smaller subcollections. The algorithm is capable of merging over 700 Gbp/day on a single system, with 20--25 gigabytes of memory overhead on top of the run-length encoded BWTs.
 \end{abstract}
 
 
@@ -180,24 +182,16 @@ When the collection is large, the space overhead of the construction algorithm o
 
 The key to reducing the space overhead is that we do not need to keep the rank array in memory. We can write the lexicographic ranks to \emph{disk} in the search phase, sort them to build the rank array in the sort phase, and scan the rank array once during the merge phase. In practice, we may want to \emph{interleave} the sort phase with the search/merge phases and store the lexicographic ranks on disk in a \emph{compressed form}, because the amount of fast disk space can also become a bottleneck. In the following, we describe the key ideas that make large-scale \BWT{} merging fast and space-efficient.
 
-\SubSection{Search}
-
-Instead of searching for every text in collection $\Bcoll$ separately, we can search for the \emph{reverse trie} of the collection. Assume that there are $m_{\Acoll}$ texts in collection $\Acoll$ and $m_{\Bcoll}$ texts in collection $\Bcoll$. The \emph{root} of the trie corresponds to suffix $\$$, which has lexicographic rank $m_{\Acoll}$ in $\Acoll$ and corresponds to lexicographic range $[1,m_{\Bcoll}]$ in $\Bcoll$.
+\smallbreak\noindent\textbf{Search.} Instead of searching for every text in collection $\Bcoll$ separately, we can search for the \emph{reverse trie} of the collection. Assume that there are $m_{\Acoll}$ texts in collection $\Acoll$ and $m_{\Bcoll}$ texts in collection $\Bcoll$. The \emph{root} of the trie corresponds to suffix $\$$, which has lexicographic rank $m_{\Acoll}$ in $\Acoll$ and corresponds to lexicographic range $[1,m_{\Bcoll}]$ in $\Bcoll$.
 
 % FIXME pseudocode if we have space for it
 Assume that we have a \emph{node} of the trie corresponding to suffix $X$, lexicographic rank $r$, and lexicographic range $[sp,ep]$. This means that suffix $X$ occurs $sp+1-ep$ times in collection $\Bcoll$, so we can output a \emph{run} of lexicographic ranks $(r, sp+1-ep)$. Afterwards, we proceed to the \emph{children} of the node. For each character $c \in \Sigma$, we create a node corresponding to suffix $cX$, lexicographic rank $\mLF_{\Acoll}(r,c)$, and lexicographic range $[\mLF_{\Bcoll}(sp-1, c) + 1, \mLF_{\Bcoll}(ep, c)]$. Searching the branches of the trie can be done in parallel using multiple \emph{threads}.
 
-\SubSection{Buffering}
-
-To reduce disk usage and the amount of disk I/O, we buffer and compress the lexicographic ranks before writing them to disk. Each thread has two buffers: a \emph{run buffer} and a \emph{thread buffer}. The run buffer stores the runs as pairs of integers $(r, \ell)$. Once the run buffer becomes full, we sort the runs by \emph{run heads} $r$, use \emph{differential encoding} for the run heads, and encode the differences and run lengths with a \emph{prefix-free code}. The compressed run buffer is then merged with the similarly compressed thread buffer.
+\smallbreak\noindent\textbf{Buffering.} To reduce disk usage and the amount of disk I/O, we buffer and compress the lexicographic ranks before writing them to disk. Each thread has two buffers: a \emph{run buffer} and a \emph{thread buffer}. The run buffer stores the runs as pairs of integers $(r, \ell)$. Once the run buffer becomes full, we sort the runs by \emph{run heads} $r$, use \emph{differential encoding} for the run heads, and encode the differences and run lengths with a \emph{prefix-free code}. The compressed run buffer is then merged with the similarly compressed thread buffer.
 
 Once a thread buffer becomes full, we insert it into the global \emph{merge buffers}. There are $k$ merge buffers, with buffer $i$ containing $2^{i-1}$ merged thread buffers. The insertion starts at buffer $1$. If buffer $i$ is empty, the thread inserts its thread buffer there and returns back to the search phase. Otherwise it takes the contents of merge buffer $i$, merges them with its thread buffer, and proceeds to buffer $i+1$. If a thread reaches buffer $k+1$, it writes its thread buffer to disk and returns back to work.
 
-\SubSection{Merge}
-
-The merge phase starts with the rank array stored in multiple files on disk. Each of the files is sorted and compressed. For interleaving the \BWT{}s, we need to merge the files to produce an increasing run-length encoded stream of lexicographic ranks.
-
-This work can also be parallelized between multiple threads. One thread reads the files and performs a \emph{multiway merge} using a priority queue, producing a stream of lexicographic ranks. Another thread consumes the stream and uses it to interleave the \BWT{}s. Because the producer thread is usually slower than the consumer thread, we may want to use multiple threads for the multiway merge, if the disk is fast enough.
+\smallbreak\noindent\textbf{Merge.} The merge phase starts with the rank array stored in multiple files on disk. Each of the files is sorted and compressed. For interleaving the \BWT{}s, we need to merge the files to produce an increasing run-length encoded stream of lexicographic ranks. We can also use multiple threads. One thread reads the files and performs a \emph{multiway merge} using a priority queue, producing a stream of lexicographic ranks. Another thread consumes the stream and uses it to interleave the \BWT{}s. Because the producer thread is usually slower than the consumer thread, we may want to use multiple threads for the multiway merge, if the disk is fast enough.
 
 
 \Section{Implementation}
@@ -206,7 +200,7 @@ We have implemented the proposed enhancements to the \BWT{} merging algorithm in
 
 The target environment of \BWTmerge{} is a \emph{single node} of a \emph{computer cluster}. The system should have tens of CPU cores and hundreds of gigabytes of memory. The amount of local disk space might not be much larger than memory size, while there can be plenty of shared disk space available. The number of search threads is equal to the number of CPU cores, while the merge phase uses just one producer thread and one consumer thread. By adjusting the sizes of run buffers and thread buffers and the number of merge buffers, \BWTmerge{} should work reasonably well in different environments.
 
-The internal alphabet of \BWTmerge{} is \texttt{012345}, which corresponds to either \texttt{\$ACGTN} or \texttt{\$ACGNT}, depending on where the \BWT{}s come from. \BWT{}s using different alphabetic orders cannot be merged. We use simple byte-level codes for \emph{run-length encoding} the \BWT{}s. The encoding of run $(c, \ell)$, where $c$ is the character value and $\ell$ is the length, depends on the length of the run. If $\ell \le 41$, the run is encoded in a single byte as $6 \cdot (\ell-1) + c$. Longer runs start with byte $6 \cdot 41 + c$, followed by the encoding of $\ell-42$. The remaining run length is encoded as a sequence of bytes, with the low 7 bits containing data and the high bit telling whether the encoding continues in the next byte. The compressed buffers use the same 7+1\nobreakdash-bit code for both differentially encoded run heads and run lengths.
+The internal alphabet of \BWTmerge{} is \texttt{012345}, which corresponds to either \texttt{\$ACGTN} or \texttt{\$ACGNT}, depending on where the \BWT{}s come from. \BWT{}s using different alphabetic orders cannot be merged. We use simple byte-level codes for \emph{run-length encoding} the \BWT{}s. The encoding of run $(c, \ell)$, where $c$ is the character value and $\ell$ is the length, depends on the length of the run. If $\ell \le 41$, the run is encoded in a single byte as $6 \cdot (\ell-1) + c$. Longer runs start with byte $6 \cdot 41 + c$, followed by the encoding of $\ell-42$. The remaining run length is encoded as a sequence of bytes, with the low 7 bits containing data and the high bit telling whether the encoding continues in the next byte. The compressed buffers use the same 7+1\nobreakdash-bit code for both the differentially encoded run heads and the run lengths.
 
 For \rank/\select{} support, we split the \BWT{}s into 64\nobreakdash-byte blocks of compressed data, so that no run continues from one block to the next one. For each block $i$, we store the total number of characters in blocks $1$ to $i-1$ as $n_{i}$, as well as the cumulative character counts $c_{i} = \mBWT.\mrank(n_{i},c)$ for $0 \le c \le 5$. Each of these seven increasing sequences is encoded using the \sdarray{} encoding \cite{Okanohara2007}. To compute $\mBWT.\mrank(j,c)$, we first use a \rank{} query on the $n_{i}$ sequence to find the correct block. A \select{} query on the same sequence transforms position $j$ into an offset within the block, while a \select{} query on the $c_{i}$ sequence gives the rank up to the beginning of the block. Finally, we decompress the block to answer the query. \select{} queries and random accesses to the \BWT{} work in a similar way. There are also optimizations for e.g.~computing $\mrank(i,c)$ for all characters $c$, and for finding the children of a reverse trie node corresponding to a relatively short lexicographic range.
 
@@ -215,14 +209,47 @@ We use two-level arrays with 8\nobreakdash-megabyte blocks to store the \BWT{}s 
 
 \Section{Experiments}
 
-environment, compiler
+We ran our experiments on a system with two 16\nobreakdash-core AMD Opteron 6378 processors and 256 gigabytes of memory. The system was running Ubuntu 12.04 on Linux kernel 3.2.0. All software was compiled with gcc/g++ version 4.9.2.
 
-data: ReadServer BWTs, NA12878 trio \cite{1000GP2015}
-error correction using bfc \cite{Li2015}
+\begin{table}[t!]
+\begin{center}
+\caption{Datasets used in the experiments.}\label{table:datasets}\smallskip%
+{
+\renewcommand{\baselinestretch}{1}\footnotesize
+\begin{tabular}{cc|ccc}
+\hline
+\textbf{Dataset} & \textbf{Collection} & \textbf{Size} & \textbf{Reads} & \textbf{Read length} \\
+\hline
+\CEU             & NA12878             &       284 Gbp &          2.81G &               101 bp \\
+\CEU             & NA12891             &       242 Gbp &          2.40G &               101 bp \\
+\CEU             & NA12892             &       245 Gbp &          2.42G &               101 bp \\
+\CEU             & Merged              &       771 Gbp &          7.63G &               101 bp \\
+\hline
+\RS              & AA                  &       433 Gbp &          4.69G &         73 or 100 bp \\
+\RS              & TT                  &       432 Gbp &          4.68G &         73 or 100 bp \\
+\RS              & AT                  &       275 Gbp &          2.98G &         73 or 100 bp \\
+\RS              & TA                  &       355 Gbp &          3.84G &         73 or 100 bp \\
+\RS              & Merged              &      1.49 Tbp &          16.2G &         73 or 100 bp \\
+\hline
+\end{tabular}}
+\end{center}
+\end{table}
 
-ReadServer: trade-offs with different parameters
+We used two datasets from the phase 3 of the \emph{1000 Genomes Project} \cite{1000GP2015}:
+\begin{itemize}
 
-trio: ropebwt + this vs ropebwt vs ropebwt2
+\item \CEU{} contains reads from high-coverage sequencing of the \emph{CEU trio} (individuals NA12878, NA12891, and NA12892). We downloaded the gzipped FASTQ files (run accessions SRR622457, SRR622458, and SRR622459) and concatenated the files representing the same individual. Then we corrected the sequencing errors with BFC \cite{Li2015} (\texttt{bfc -s 3g -t 16}) separately for each individual.
+
+\item \RS{} is from the ReadServer project, which uses all sequence data from the phase 3. After error correction, trimming the reads to 73 or 100~bp, and merging the duplicates, there are 53.0~billion unique reads for a total of 4.88~Tbp. The reads are in 16 run-length encoded \BWT{}s built using the \emph{String Graph Assembler} \cite{Simpson2012}, distributed according to the last two bases. We chose four of the files (AA, TT, AT, and TA).
+
+\end{itemize}
+See Table~\ref{table:datasets} for further details on the datasets.
+
+CEU: ropebwt + this vs ropebwt vs ropebwt2
+
+RS: trade-offs with different parameters
+
+Note: input/output formats, BWT-merge times include verification
 
 
 \Section{Discussion}
