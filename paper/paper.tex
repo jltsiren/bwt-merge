@@ -46,6 +46,10 @@
 \newcommand{\Acoll}{\ensuremath{\mathcal{A}}}
 \newcommand{\Bcoll}{\ensuremath{\mathcal{B}}}
 
+% Names
+\newcommand{\BWTmerge}{\textsf{BWT\nobreakdash-merge}}
+\newcommand{\sdarray}{\textsf{sdarray}}
+
 
 
 \begin{document}
@@ -198,18 +202,20 @@ This work can also be parallelized between multiple threads. One thread reads th
 
 \Section{Implementation}
 
-C++, compiler, github
+We have implemented the proposed enhancements to the \BWT{} merging algorithm in a tool (\BWTmerge) intended for merging the \BWT{}s of large collections of short reads. \BWTmerge{} is written in C++, and the source code is available at GitHub.\footnote{\url{https://github.com/jltsiren/bwt-merge}} The implementation is built on top of the \emph{SDSL library} \cite{Gog2014b} and uses the features of C++11 extensively. As a result, it needs a fairly recent C++11 compiler to compile. We have built \BWTmerge{} on Linux and OS~X using g++.
 
-details of run-length encoding of BWT, RA; search optimizations
+The target environment of \BWTmerge{} is a \emph{single node} of a \emph{computer cluster}. The system should have tens of CPU cores and hundreds of gigabytes of memory. The amount of local disk space might not be much larger than memory size, while there can be plenty of shared disk space available. The number of search threads is equal to the number of CPU cores, while the merge phase uses just one producer thread and one consumer thread. By adjusting the sizes of run buffers and thread buffers and the number of merge buffers, \BWTmerge{} should work reasonably well in different environments.
 
-number of threads
+The internal alphabet of \BWTmerge{} is \texttt{012345}, which corresponds to either \texttt{\$ACGTN} or \texttt{\$ACGNT}, depending on where the \BWT{}s come from. \BWT{}s using different alphabetic orders cannot be merged. We use simple byte-level codes for \emph{run-length encoding} the \BWT{}s. The encoding of run $(c, \ell)$, where $c$ is the character value and $\ell$ is the length, depends on the length of the run. If $\ell \le 41$, the run is encoded in a single byte as $6 \cdot (\ell-1) + c$. Longer runs start with byte $6 \cdot 41 + c$, followed by the encoding of $\ell-42$. The remaining run length is encoded as a sequence of bytes, with the low 7 bits containing data and the high bit telling whether the encoding continues in the next byte. The compressed buffers use the same 7+1\nobreakdash-bit code for both differentially encoded run heads and run lengths.
 
-use 8~MB blocks instead of virtual memory pages
+For \rank/\select{} support, we split the \BWT{}s into 64\nobreakdash-byte blocks of compressed data, so that no run continues from one block to the next one. For each block $i$, we store the total number of characters in blocks $1$ to $i-1$ as $n_{i}$, as well as the cumulative character counts $c_{i} = \mBWT.\mrank(n_{i},c)$ for $0 \le c \le 5$. Each of these seven increasing sequences is encoded using the \sdarray{} encoding \cite{Okanohara2007}. To compute $\mBWT.\mrank(j,c)$, we first use a \rank{} query on the $n_{i}$ sequence to find the correct block. A \select{} query on the same sequence transforms position $j$ into an offset within the block, while a \select{} query on the $c_{i}$ sequence gives the rank up to the beginning of the block. Finally, we decompress the block to answer the query. \select{} queries and random accesses to the \BWT{} work in a similar way. There are also optimizations for e.g.~computing $\mrank(i,c)$ for all characters $c$, and for finding the children of a reverse trie node corresponding to a relatively short lexicographic range.
+
+We use two-level arrays with 8\nobreakdash-megabyte blocks to store the \BWT{}s and the compressed buffers, managing the blocks using \texttt{mmap()} and \texttt{munmap()}. In our experiments, this direct memory management reduced the space overhead by tens of gigabytes. When multiple threads allocate memory in small enough blocks, the multithreaded \emph{glibc} implementation of \texttt{malloc()} creates a number of additional heaps that will never grow larger than 64~MB. Each thread tries to reuse the heap it used for the last allocation. If a heap is full or the thread cannot acquire the mutex, it moves to the next heap. With our workload of tens of threads allocating and freeing hundreds of gigabytes of memory, this created thousands of heaps with holes in the middle. Most calls to \texttt{free()} could not release the memory back to the operating system, while it took a while before a thread reached the heap where the \texttt{free()} took place.
 
 
 \Section{Experiments}
 
-environment
+environment, compiler
 
 data: ReadServer BWTs, NA12878 trio \cite{1000GP2015}
 error correction using bfc \cite{Li2015}
@@ -223,7 +229,7 @@ trio: ropebwt + this vs ropebwt vs ropebwt2
 
 conclusions
 
-sequence ordering: original orderin may be important, RLO/RCLO for compression, RLCO for mapping between reverse complements, mapping position for encoding pairing information
+sequence ordering: original order may be important, RLO/RCLO for compression, RLCO for mapping between reverse complements, mapping position for encoding pairing information
 
 remove duplicates
 
