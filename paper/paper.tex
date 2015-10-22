@@ -136,6 +136,7 @@ We can \emph{extract} text $T_{i}$ in $\Oh(\abs{T_{i}} \cdot t_{r})$ time by usi
 $$
 T_{i}[\abs{T_{i}} - j] = \mBWT[\LF^{j-1}(i)] \,\, \textrm{for} \,\, 1 \le j < \abs{T_{i}}.
 $$
+As $\mSA[\LF^{j}(i)]$ points to suffix $T_{i}[\abs{T_{i}}-j, \abs{T_{i}}]$, we also extract the lexicographic ranks of all suffixes of text $T_{i}$ in the process.
 
 
 \Section{Space-efficient \BWT{} construction}
@@ -150,35 +151,56 @@ There are six basic ways of using the transformation in a \BWT{} construction al
 \Section{Merging \BWT{}s of text collections}
 
 % FIXME: a running example with 2 texts
-Assume that we have two text collections $\Acoll$ and $\Bcoll$ of total length $n_{\Acoll}$ and $n_{\Bcoll}$, respectively, and that we have already built \BWT{}s for them. The algorithm for merging $\mBWT_{\Acoll}$ and $\mBWT_{\Bcoll}$ into $\mBWT_{\Acoll \cup \Bcoll}$ works in three phases \cite{Siren2009}:
-\begin{enumerate}
-\item \textbf{Search.} We search for all texts in collection $\Bcoll$ using $\mBWT_{\Acoll}$ and output the lexicographic rank $\mrank(X, \Acoll)$ for each suffix $X$ of collection $\Bcoll$. This takes $\Oh(n_{\Bcoll} t_{r})$ time. If we do not have collection $\Bcoll$ in plain form, we can extract the texts from $\mBWT_{\Bcoll}$ in the same asymptotic time.
-\item \textbf{Sort.} We sort the ranks produced in the search phase to build the \emph{rank array} (\RA) of collection $\Bcoll$ relative to collection $\Acoll$. The rank array is defined as $\mRA_{\Bcoll \mid \Acoll}[i] = \mrank(X, \Acoll)$, where $X$ is the suffix pointed by $\mSA_{\Bcoll}[i]$. The array requires $n_{\Bcoll} \log n_{\Acoll}$ bits of space, and we can build it in $\Oh(sort(n_{\Bcoll}, n_{\Acoll}))$ time, where $sort(n, u)$ is the time required to sort $n$ integers from universe $[0,u]$.
-\item \textbf{Merge.} We interleave $\mBWT_{\Acoll}$ and $\mBWT_{\Bcoll}$ according to the rank array. If $\mRA_{\Bcoll \mid \Acoll}[i] = j$, the merged \BWT{} will have $j$ characters from $\mBWT_{\Acoll}$ before $\mBWT_{\Bcoll}[i]$. This phase takes $\Oh(n_{\Acoll} + n_{\Bcoll})$ time and uses $\Oh(b)$ bits of working space, where $b$ is the size of virtual memory pages.
-\end{enumerate}
-The overall time complexity of \BWT{} merging is $\Oh(n_{\Acoll} + n_{\Bcoll} t_{r} + sort(n_{\Bcoll}, n_{\Acoll}))$. The algorithm uses $n_{\Bcoll} \log n_{\Acoll} + \Oh(b)$ bits of working space in addition to the \BWT{}s, the structures required to use them as FM-indexes, and the working space used by the sorting algorithm.
+Assume that we have two text collections $\Acoll$ and $\Bcoll$ of total length $n_{\Acoll}$ and $n_{\Bcoll}$, respectively, and that we have already built \BWT{}s for them. Assume that we store the \BWT{}s in a two-level array, where the first level contains pointers to \emph{blocks} of size $b$ (bits). If the \BWT{} takes $x$ bits, the two-level array imposes $\frac{x}{b} \log x + \Oh(b)$ bits of space overhead. With $b = \sqrt{x \log x}$, the overhead becomes $\Oh(\sqrt{x \log x})$ bits.
 
-In an alternative approach, we build the \emph{interleaving bitvector} $B_{\Acoll \cup \Bcoll}$. The bitvector is a binary sequence of length $n_{\Acoll} + n_{\Bcoll}$ and encodes the same information as the rank array. We set $B_{\Acoll \cup \Bcoll}[i + \mRA_{\Bcoll \mid \Acoll}[i]] = 1$ for $1 \le i \le n_{\Bcoll}$. If we extract the texts from $\mBWT_{\Bcoll}$ in the search phase, this can be done directly using the information available at that point. This approach uses $\Oh(n_{\Acoll} + n_{\Bcoll} t_{r})$ time and $n_{\Acoll} + n_{\Bcoll} + \Oh(b)$ bits of working space.
+The algorithm for merging $\mBWT_{\Acoll}$ and $\mBWT_{\Bcoll}$ into $\mBWT_{\Acoll \cup \Bcoll}$ has three phases \cite{Siren2009}:
+\begin{enumerate}
+
+\item \textbf{Search.} We search for all texts in collection $\Bcoll$ using $\mBWT_{\Acoll}$ and output the lexicographic rank $\mrank(X, \Acoll)$ for each suffix $X$ of collection $\Bcoll$. This takes $\Oh(n_{\Bcoll} t_{r})$ time. If we do not have collection $\Bcoll$ in plain form, we can extract the texts from $\mBWT_{\Bcoll}$ in the same asymptotic time.
+
+\item \textbf{Sort.} We sort the ranks produced in the search phase to build the \emph{rank array} (\RA) of collection $\Bcoll$ relative to collection $\Acoll$. The rank array is defined as $\mRA_{\Bcoll \mid \Acoll}[i] = \mrank(X, \Acoll)$, where $X$ is the suffix pointed by $\mSA_{\Bcoll}[i]$. The array requires $n_{\Bcoll} \log n_{\Acoll}$ bits of space, and we can build it in $\Oh(sort(n_{\Bcoll}, n_{\Acoll}))$ time, where $sort(n, u)$ is the time required to sort $n$ integers from universe $[0,u]$. If we extract the texts from $\mBWT_{\Bcoll}$ in the search phase, we can write the ranks directly into the rank array, making this phase unnecessary.
+
+\item \textbf{Merge.} We interleave $\mBWT_{\Acoll}$ and $\mBWT_{\Bcoll}$ according to the rank array. If $\mRA_{\Bcoll \mid \Acoll}[i] = j$, the merged \BWT{} will have $j$ characters from $\mBWT_{\Acoll}$ before $\mBWT_{\Bcoll}[i]$. This phase takes $\Oh(n_{\Acoll} + n_{\Bcoll})$ time. By reusing the blocks of $\mBWT_{\Acoll}$ and $\mBWT_{\Bcoll}$ for $\mBWT_{\Acoll \cup \Bcoll}$ once we have processed them, we can merge the \BWT{}s almost in-place, using $\Oh(\sqrt{x \log x})$ bits of working space, where $x$ is the maximum of the sizes of $\mBWT_{\Acoll}$ and $\mBWT_{\Bcoll}$ in bits.
+
+\end{enumerate}
+The overall time complexity of \BWT{} merging is $\Oh(n_{\Acoll} + n_{\Bcoll} t_{r})$. The algorithm uses $n_{\Bcoll} \log n_{\Acoll} + \Oh(\sqrt{x \log x})$ bits of working space in addition to the \BWT{}s and the structures required to use them as FM-indexes.
+
+Alternatively, we can build the \emph{interleaving bitvector} $B_{\Acoll \cup \Bcoll}$. This bitvector is a binary sequence of length $n_{\Acoll} + n_{\Bcoll}$ that encodes the same information as the rank array. We set $B_{\Acoll \cup \Bcoll}[i + \mRA_{\Bcoll \mid \Acoll}[i]] = 1$ for $1 \le i \le n_{\Bcoll}$, denoting that $\mSA_{\Acoll \cup \Bcoll}[i + \mRA_{\Bcoll \mid \Acoll}[i]]$ points to a suffix of collection $\Bcoll$. This approach uses $n_{\Acoll} + n_{\Bcoll} + \Oh(\sqrt{x \log x})$ bits of working space.
 
 
 \Section{Large-scale \BWT{} merging}
 
-main problem: memory size may be $\oh(\min(n_{\Bcoll} \log n_{\Acoll}, n_{\Acoll} + n_{\Bcoll}))$ bits even if a run-length encoded \BWT{} fits in memory; space overhead from dynamic representations also too large
+If we split text collection $\Acoll$ of total length $n$ into $p$ \emph{subcollections} of equal size, we can build $\mBWT_{\Acoll}$ by merging the \BWT{}s of the subcollections incrementally. Merging the subcollections takes $\Oh((p+t_{r})n)$ time and uses (essentially) $\min(n, \frac{n}{p} \log n)$ bits of working space.
 
-sort is interleaved with search and merge
+When the collection is large, the space overhead of the construction algorithm often determines whether we can build the \BWT{} of the collection. Even if a static encoding of the \BWT{} fits in memory, a dynamic encoding may already be too large. The space overhead from the rank array or the interleaving bitvector (or their equivalents in the other space-efficient algorithms) may also be too much. We can make the rank array fit in memory by increasing the number of subcollections, but that can make the construction too slow.
 
-search: trie vs individual sequences, multiple threads
+The key to reducing the space overhead is that we do not need to keep the rank array in memory. We can write the lexicographic ranks to \emph{disk} in the search phase, sort them to build the rank array in the sort phase, and scan the rank array once during the merge phase. In practice, we may want to \emph{interleave} the sort phase with the search/merge phases and store the lexicographic ranks on disk in a \emph{compressed form}, because the amount of fast disk space can also become a bottleneck. In the following, we describe the key ideas that make large-scale \BWT{} merging fast and space-efficient.
 
-buffering: run buffer, thread buffer (RLE, differential encoding), merge buffers, to disk
+\SubSection{Search}
 
-interleaving: multiway merge from disk in one thread, interleave BWTs in another
+Instead of searching for every text in collection $\Bcoll$ separately, we can search for the \emph{reverse trie} of the collection. Assume that there are $m_{\Acoll}$ texts in collection $\Acoll$ and $m_{\Bcoll}$ texts in collection $\Bcoll$. The \emph{root} of the trie corresponds to suffix $\$$, which has lexicographic rank $m_{\Acoll}$ in $\Acoll$ and corresponds to lexicographic range $[1,m_{\Bcoll}]$ in $\Bcoll$.
+
+% FIXME pseudocode if we have space for it
+Assume that we have a \emph{node} of the trie corresponding to suffix $X$, lexicographic rank $r$, and lexicographic range $[sp,ep]$. This means that suffix $X$ occurs $sp+1-ep$ times in collection $\Bcoll$, so we can output a \emph{run} of lexicographic ranks $(r, sp+1-ep)$. Afterwards, we proceed to the \emph{children} of the node. For each character $c \in \Sigma$, we create a node corresponding to suffix $cX$, lexicographic rank $\mLF_{\Acoll}(r,c)$, and lexicographic range $[\mLF_{\Bcoll}(sp-1, c) + 1, \mLF_{\Bcoll}(ep, c)]$. Searching the branches of the trie can be done in parallel using multiple \emph{threads}.
+
+\SubSection{Buffering}
+
+To reduce disk usage and the amount of disk I/O, we buffer and compress the lexicographic ranks before writing them to disk. Each thread has two buffers: a \emph{run buffer} and a \emph{thread buffer}. The run buffer stores the runs as pairs of integers $(r, \ell)$. Once the run buffer becomes full, we sort the runs by \emph{run heads} $r$, use \emph{differential encoding} for the run heads, and encode the differences and run lengths with a \emph{prefix-free code}. The compressed run buffer is then merged with the similarly compressed thread buffer.
+
+Once a thread buffer becomes full, we insert it into the global \emph{merge buffers}. There are $k$ merge buffers, with buffer $i$ containing $2^{i-1}$ merged thread buffers. The insertion starts at buffer $1$. If buffer $i$ is empty, the thread inserts its thread buffer there and returns back to the search phase. Otherwise it takes the contents of merge buffer $i$, merges them with its thread buffer, and proceeds to buffer $i+1$. If a thread reaches buffer $k+1$, it writes its thread buffer to disk and returns back to work.
+
+\SubSection{Merge}
+
+The merge phase starts with the rank array stored in multiple files on disk. Each of the files is sorted and compressed. For interleaving the \BWT{}s, we need to merge the files to produce an increasing run-length encoded stream of lexicographic ranks.
+
+This work can also be parallelized between multiple threads. One thread reads the files and performs a \emph{multiway merge} using a priority queue, producing a stream of lexicographic ranks. Another thread consumes the stream and uses it to interleave the \BWT{}s. Because the producer thread is usually slower than the consumer thread, we may want to use multiple threads for the multiway merge, if the disk is fast enough.
 
 
 \Section{Implementation}
 
 C++, compiler, github
 
-details of run-length encoding of BWT, RA
+details of run-length encoding of BWT, RA; search optimizations
 
 number of threads
 
