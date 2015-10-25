@@ -86,22 +86,36 @@ In order to avoid the reference bias introduced by mapping reads to a reference 
 
 \Section{Introduction}
 
-Sequence data
+The dramatic decrease in the cost of DNA sequencing has flooded the world with \emph{sequence data}. The \emph{1000 Genomes Project} \cite{1000GP2015} sequenced the genomes of over 2500 humans, and there are many other projects that are similar or greater in scale. For each sequenced genome, a sequencing machine produces a large number of \emph{reads} (short sequences) that cover the genome many times over. For a \~3~Gbp human genome, the total length of the reads is often \~100~Gbp or more.
 
-BWT, compression, FM-index, applications, repetitive, rle
+\emph{De novo assembly} of sequenced genomes is still too difficult to be routinely done. As a practical alternative, bioinformaticians typically align the reads are aligned to a \emph{reference genome} of the same species. Because most reference genomes have been derived from the genomes of a small number of individuals, this introduces \emph{reference bias}, which may adversely affect the results of subsequent analysis. Switching from reference sequences to \emph{reference graphs} can help to reduce the bias, but such transition will likely take years \cite{Church2015}.
 
-ReadServer; multiple BWTs due to construction issues; less BWTs would mean less memory, less querying
+The \emph{ReadServer project} at the Wellcome Trust Sanger Institute aims to avoid the reference bias entirely by developing tools for large-scale \emph{reference-free} genome analysis. Unique reads are compressed and indexed using the \emph{Burrows-Wheeler transform} (\BWT) \cite{Burrows1994}, while metadata databases contain information about the original reads. In the pilot phase, the ReadServer project works with the low-coverage and exome data from phase 3 of the 1000 Genomes Project. After error correction and trimming the reads to either 73~bp or 100~bp, the 86~Tbp of raw data consisting of 922~billion original reads is reduced to 4.88~Tbp and 53.0~billion unique sequences. These sequences are stored in 16 \BWT-based indexes \cite{Ferragina2005a} taking a total of 561.5~gigabytes.
 
-Large scale construction: speed, space, hardware, efficiency
+Preprocessing large datasets can take days or even weeks. As a result, it is not always feasible to rebuild everything when new methods of analysis require new functionalities from the indexes. \BWT-based methods were chosen due to their versatility. A \emph{run-length encoded} \BWT{} compresses repetitive sequence collections quite well \cite{Maekinen2010}, while the similarities to the suffix tree and the suffix array make \BWT-based indexes suitable for a wide variety of \emph{pattern matching} and \emph{sequence analysis} tasks \cite{Ohlebusch2013,Maekinen2015}.
 
-BWT construction: from SA \cite{Mori2008,Nong2011}
-external SA \cite{Gonnet1992,Bingmann2013,Kaerkkaeinen2014a,Nong2014,Kaerkkaeinen2015a}
-space efficient algorithms \cite{Hon2007,Kaerkkaeinen2007,Siren2009,Okanohara2009}
-external BWT \cite{Ferragina2012,Beller2013}
+ReadServer stores the unique reads in 16 \BWT-based indexes according to the last two bases of the read. This means that every query must be repeated 16 times, while the indexes require more space, as the compression cannot take advantage of the similarities between the reads in different indexes. Reducing the number of indexes would improve both index size and performance. However, the lack of \BWT{} construction algorithms that work with terabases of sequence data has made it infeasible so far.
 
-Specialized for DNA: \cite{Bauer2013,Liu2014,Li2014a,Pantaleoni2014,Wang2015}
+There are four often contradictory requirements for large-scale \BWT{} construction:
+\begin{itemize}
 
-This paper: terabases
+\item \textbf{Speed.} Larger datasets require faster algorithms. As a rough guideline, an algorithm processing 1~Mbp/s is good for up to 100~Gbp, while remaining somewhat useful until 1~Tbp of data.
+
+\item \textbf{Memory.} We may have to process $n$~bp datasets on systems with less than $n$~bits of memory.
+
+\item \textbf{Hardware.} A single node in a computer cluster typically has tens of CPU cores, hundreds of gigabytes of memory, a limited amount of local disk space, and access to a large amount of shared disk space with no performance guarantees. Algorithms using a GPU or a large amount of fast disk space require special-purpose hardware.
+
+\item \textbf{Efficiency.} Large \BWT{}s can be built by doing a lot of redundant work on multiple nodes. As most computer clusters do not have large amounts of unused capacity, such inefficient algorithms are unsuitable for repeated use.
+
+\end{itemize}
+
+The most straightforward approach to \BWT{} construction is to build a \emph{suffix array} for the sequences using a fast general-purpose algorithm \cite{Mori2008,Nong2011}, and then transform the suffix array into the \BWT. These algorithms cannot be used with large datasets, as they require several times more memory than the size of the dataset. Suffix arrays can be built on disk \cite{Gonnet1992}, but even the fastest algorithms cannot index more than 1\nobreakdash--2~Mbp/s \cite{Bingmann2013,Kaerkkaeinen2014a,Nong2014,Kaerkkaeinen2015a}.
+
+There are several algorithms for constructing the \BWT{} \emph{directly} without having to build the suffix array first. They typically require only a limited amount of working space on top of a plain or compressed representation of the \BWT{} \cite{Hon2007,Kaerkkaeinen2007,Siren2009,Okanohara2009} or use the disk as additional working space \cite{Ferragina2012,Beller2013}. General-purpose implementations of these algorithms rarely exceed 1\nobreakdash--2~Mbp/s with large datasets.
+
+\emph{Specialized algorithms} for DNA sequences are much faster. Some algorithms achieve 5\nobreakdash--10~Mbps on general-purpose hardware, with their memory usage becoming a major bottleneck for datasets larger than about 1~Tbp \cite{Bauer2013,Li2014a}. GPU-based algorithms can be much faster, but their memory usage is also greater \cite{Liu2014,Pantaleoni2014}. Distributing the \BWT{} construction on multiple nodes can remove the obvious bottlenecks, but such algorithms generally do not use the hardware as efficiently as those running on  a single system \cite{Wang2015}.
+
+In this paper, we propose a practical algorithm for building the \BWT{} for terabases of sequence data. The algorithm is based on splitting the sequence collection into a number of smaller subcollections, building the \BWT{} for each subcollection, and \emph{merging} the \BWT{}s into a single structure \cite{Siren2009}. The merging algorithm is faster than \BWT{} construction for the subcollections, while having a relatively small memory overhead on top of the final \BWT-based index. As the index must be loaded in memory before it can be used, index construction can be done on the same system as the index is used.
 
 
 \Section{Background}
@@ -209,7 +223,7 @@ We use two-level arrays with 8\nobreakdash-megabyte blocks to store the \BWT{}s 
 
 \Section{Experiments}
 
-We ran our experiments on a system with two 16\nobreakdash-core AMD Opteron 6378 processors and 256 gigabytes of memory. The system was running Ubuntu 12.04 on Linux kernel 3.2.0. All software was compiled with gcc/g++ version 4.9.2.
+We ran our experiments on a system with two 16\nobreakdash-core AMD Opteron 6378 processors and 256 gigabytes of memory. The system was running Ubuntu 12.04 on Linux kernel 3.2.0. All software was compiled with gcc/g++ version 4.9.2. We stored the input/output files on a distributed Lustre file system and used a local 0.5~TB hard disk for temporary files.
 
 \begin{table}[t!]
 \begin{center}
@@ -240,7 +254,7 @@ We used two datasets from the phase 3 of the \emph{1000 Genomes Project} \cite{1
 
 \item \CEU{} contains reads from high-coverage sequencing of the \emph{CEU trio} (individuals NA12878, NA12891, and NA12892). We downloaded the gzipped FASTQ files (run accessions SRR622457, SRR622458, and SRR622459) and concatenated the files representing the same individual. Then we corrected the sequencing errors with BFC \cite{Li2015} (\texttt{bfc -s 3g -t 16}) separately for each individual.
 
-\item \RS{} is from the ReadServer project, which uses all sequence data from the phase 3. After error correction, trimming the reads to 73 or 100~bp, and merging the duplicates, there are 53.0~billion unique reads for a total of 4.88~Tbp. The reads are in 16 run-length encoded \BWT{}s built using the \emph{String Graph Assembler} \cite{Simpson2012}, distributed according to the last two bases. We chose four of the files (AA, TT, AT, and TA).
+\item \RS{} is from the ReadServer project, which uses all low-coverage and exome data from the phase 3. After error correction, trimming the reads to 73 or 100~bp, and merging the duplicates, there are 53.0~billion unique reads for a total of 4.88~Tbp. The reads are in 16 run-length encoded \BWT{}s built using the \emph{String Graph Assembler} \cite{Simpson2012}, distributed according to the last two bases. We chose four of the files (AA, TT, AT, and TA).
 
 \end{itemize}
 See Table~\ref{table:datasets} for further details on the datasets.
