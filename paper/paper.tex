@@ -48,7 +48,8 @@
 
 % Names
 \newcommand{\BWTmerge}{\textsf{BWT\nobreakdash-merge}}
-\newcommand{\sdarray}{\textsf{sdarray}}
+\newcommand{\ropebwt}{\textsf{RopeBWT}}
+\newcommand{\ropebwtii}{\textsf{RopeBWT2}}
 \newcommand{\CEU}{\textsf{CEU}}
 \newcommand{\RS}{\textsf{RS}}
 
@@ -63,7 +64,7 @@
 
 
 \author{%
-Jouni Sirén \\[0.5em]
+Jouni Sirén\thanks{This work was supported by the Wellcome Trust grant [098051].} \\[0.5em]
 {\small\begin{minipage}{\linewidth}\begin{center}
 \begin{tabular}{c}
 Wellcome Trust Sanger Institute \\
@@ -86,7 +87,7 @@ In order to avoid the reference bias introduced by mapping reads to a reference 
 
 \Section{Introduction}
 
-The dramatic decrease in the cost of DNA sequencing has flooded the world with \emph{sequence data}. The \emph{1000 Genomes Project} \cite{1000GP2015} sequenced the genomes of over 2500 humans, and there are many other projects that are similar or greater in scale. For each sequenced genome, a sequencing machine produces a large number of \emph{reads} (short sequences) that cover the genome many times over. For a \~3~Gbp human genome, the total length of the reads is often \~100~Gbp or more.
+The dramatic decrease in the cost of DNA sequencing has flooded the world with \emph{sequence data}. The \emph{1000 Genomes Project} \cite{1000GP2015} sequenced the genomes of over 2500 humans, and there are many other projects that are similar or greater in scale. For each sequenced genome, a sequencing machine produces a large number of \emph{reads} (short sequences) that cover the genome many times over. For a 3~Gbp human genome, the total length of the reads is often 100~Gbp or more.
 
 \emph{De novo assembly} of sequenced genomes is still too difficult to be routinely done. As a practical alternative, bioinformaticians typically align the reads are aligned to a \emph{reference genome} of the same species. Because most reference genomes have been derived from the genomes of a small number of individuals, this introduces \emph{reference bias}, which may adversely affect the results of subsequent analysis. Switching from reference sequences to \emph{reference graphs} can help to reduce the bias, but such transition will likely take years \cite{Church2015}.
 
@@ -216,14 +217,14 @@ The target environment of \BWTmerge{} is a \emph{single node} of a \emph{compute
 
 The internal alphabet of \BWTmerge{} is \texttt{012345}, which corresponds to either \texttt{\$ACGTN} or \texttt{\$ACGNT}, depending on where the \BWT{}s come from. \BWT{}s using different alphabetic orders cannot be merged. We use simple byte-level codes for \emph{run-length encoding} the \BWT{}s. The encoding of run $(c, \ell)$, where $c$ is the character value and $\ell$ is the length, depends on the length of the run. If $\ell \le 41$, the run is encoded in a single byte as $6 \cdot (\ell-1) + c$. Longer runs start with byte $6 \cdot 41 + c$, followed by the encoding of $\ell-42$. The remaining run length is encoded as a sequence of bytes, with the low 7 bits containing data and the high bit telling whether the encoding continues in the next byte. The compressed buffers use the same 7+1\nobreakdash-bit code for both the differentially encoded run heads and the run lengths.
 
-For \rank/\select{} support, we split the \BWT{}s into 64\nobreakdash-byte blocks of compressed data, so that no run continues from one block to the next one. For each block $i$, we store the total number of characters in blocks $1$ to $i-1$ as $n_{i}$, as well as the cumulative character counts $c_{i} = \mBWT.\mrank(n_{i},c)$ for $0 \le c \le 5$. Each of these seven increasing sequences is encoded using the \sdarray{} encoding \cite{Okanohara2007}. To compute $\mBWT.\mrank(j,c)$, we first use a \rank{} query on the $n_{i}$ sequence to find the correct block. A \select{} query on the same sequence transforms position $j$ into an offset within the block, while a \select{} query on the $c_{i}$ sequence gives the rank up to the beginning of the block. Finally, we decompress the block to answer the query. \select{} queries and random accesses to the \BWT{} work in a similar way. There are also optimizations for e.g.~computing $\mrank(i,c)$ for all characters $c$, and for finding the children of a reverse trie node corresponding to a relatively short lexicographic range.
+For \rank/\select{} support, we split the \BWT{}s into 64\nobreakdash-byte blocks of compressed data, so that no run continues from one block to the next one. For each block $i$, we store the total number of characters in blocks $1$ to $i-1$ as $n_{i}$, as well as the cumulative character counts $c_{i} = \mBWT.\mrank(n_{i},c)$ for $0 \le c \le 5$. Each of these seven increasing sequences is encoded using the \emph{sdarray} encoding \cite{Okanohara2007}. To compute $\mBWT.\mrank(j,c)$, we first use a \rank{} query on the $n_{i}$ sequence to find the correct block. A \select{} query on the same sequence transforms position $j$ into an offset within the block, while a \select{} query on the $c_{i}$ sequence gives the rank up to the beginning of the block. Finally, we decompress the block to answer the query. \select{} queries and random accesses to the \BWT{} work in a similar way. There are also optimizations for e.g.~computing $\mrank(i,c)$ for all characters $c$, and for finding the children of a reverse trie node corresponding to a relatively short lexicographic range.
 
 We use two-level arrays with 8\nobreakdash-megabyte blocks to store the \BWT{}s and the compressed buffers, managing the blocks using \texttt{mmap()} and \texttt{munmap()}. In our experiments, this direct memory management reduced the space overhead by tens of gigabytes. When multiple threads allocate memory in small enough blocks, the multithreaded \emph{glibc} implementation of \texttt{malloc()} creates a number of additional heaps that will never grow larger than 64~MB. Each thread tries to reuse the heap it used for the last allocation. If a heap is full or the thread cannot acquire the mutex, it moves to the next heap. With our workload of tens of threads allocating and freeing hundreds of gigabytes of memory, this created thousands of heaps with holes in the middle. Most calls to \texttt{free()} could not release the memory back to the operating system, while it took a while before a thread reached the heap where the \texttt{free()} took place.
 
 
 \Section{Experiments}
 
-We ran our experiments on a system with two 16\nobreakdash-core AMD Opteron 6378 processors and 256 gigabytes of memory. The system was running Ubuntu 12.04 on Linux kernel 3.2.0. All software was compiled with gcc/g++ version 4.9.2. We stored the input/output files on a distributed Lustre file system and used a local 0.5~TB hard disk for temporary files.
+We ran our experiments on a system with two 16\nobreakdash-core AMD Opteron 6378 processors and 256 gigabytes of memory. The system was running Ubuntu 12.04 on Linux kernel 3.2.0. All software was compiled with gcc/g++ version 4.9.2. We stored the input/output files on a distributed Lustre file system and used a local 0.5~TB hard disk for temporary files. \BWTmerge{} was allowed to use 32 threads, while the other \BWT{} construction tools were limited to 4 or 5 parallel threads by design. All reported merging times include verification by querying the \BWT{}s with 2~million $32$\nobreakdash-mers extracted from the human reference genome.
 
 \begin{table}[t!]
 \begin{center}
@@ -232,18 +233,21 @@ We ran our experiments on a system with two 16\nobreakdash-core AMD Opteron 6378
 \renewcommand{\baselinestretch}{1}\footnotesize
 \begin{tabular}{cc|ccc}
 \hline
-\textbf{Dataset} & \textbf{Collection} & \textbf{Size} & \textbf{Reads} & \textbf{Read length} \\
+\textbf{Dataset} & \textbf{File} & \textbf{Size} & \textbf{Reads} & \textbf{Read length} \\
 \hline
-\CEU             & NA12878             &       284 Gbp &          2.81G &               101 bp \\
-\CEU             & NA12891             &       242 Gbp &          2.40G &               101 bp \\
-\CEU             & NA12892             &       245 Gbp &          2.42G &               101 bp \\
-\CEU             & Merged              &       771 Gbp &          7.63G &               101 bp \\
+\CEU & NA12878 &  284 Gbp & 2.81G &       101 bp \\
+     & NA12891 &  242 Gbp & 2.40G &       101 bp \\
+     & NA12892 &  245 Gbp & 2.42G &       101 bp \\
+     & Merged  &  771 Gbp & 7.63G &       101 bp \\
 \hline
-\RS              & AA                  &       433 Gbp &          4.69G &         73 or 100 bp \\
-\RS              & TT                  &       432 Gbp &          4.68G &         73 or 100 bp \\
-\RS              & AT                  &       275 Gbp &          2.98G &         73 or 100 bp \\
-\RS              & TA                  &       355 Gbp &          3.84G &         73 or 100 bp \\
-\RS              & Merged              &      1.49 Tbp &          16.2G &         73 or 100 bp \\
+\RS  & AA      &  433 Gbp & 4.69G & 73 or 100 bp \\
+     & TT      &  432 Gbp & 4.68G & 73 or 100 bp \\
+     & AT      &  275 Gbp & 2.98G & 73 or 100 bp \\
+     & TA      &  355 Gbp & 3.84G & 73 or 100 bp \\
+     & Merged  & 1.49 Tbp & 16.2G & 73 or 100 bp \\
+\hline
+\RS  & *A, *C  & 2.45 Tbp & 26.5G & 73 or 100 bp \\
+     & *G, *T  & 2.44 Tbp & 26.5G & 73 or 100 bp \\
 \hline
 \end{tabular}}
 \end{center}
@@ -254,23 +258,40 @@ We used two datasets from the phase 3 of the \emph{1000 Genomes Project} \cite{1
 
 \item \CEU{} contains reads from high-coverage sequencing of the \emph{CEU trio} (individuals NA12878, NA12891, and NA12892). We downloaded the gzipped FASTQ files (run accessions SRR622457, SRR622458, and SRR622459) and concatenated the files representing the same individual. Then we corrected the sequencing errors with BFC \cite{Li2015} (\texttt{bfc -s 3g -t 16}) separately for each individual.
 
-\item \RS{} is from the ReadServer project, which uses all low-coverage and exome data from the phase 3. After error correction, trimming the reads to 73 or 100~bp, and merging the duplicates, there are 53.0~billion unique reads for a total of 4.88~Tbp. The reads are in 16 run-length encoded \BWT{}s built using the \emph{String Graph Assembler} \cite{Simpson2012}, distributed according to the last two bases. We chose four of the files (AA, TT, AT, and TA).
+\item \RS{} is from the \emph{ReadServer project}, which uses all low-coverage and exome data from the phase 3. After error correction, trimming the reads to 73 or 100~bp, and merging the duplicates, there are 53.0~billion unique reads for a total of 4.88~Tbp. The reads are in 16 run-length encoded \BWT{}s built using the \emph{String Graph Assembler} \cite{Simpson2012}, distributed according to the last two bases.
 
 \end{itemize}
 See Table~\ref{table:datasets} for further details on the datasets.
 
-CEU: ropebwt + this vs ropebwt vs ropebwt2
+\smallbreak\noindent\textbf{Benchmarking.} For benchmarking with different parameter values, we converted four \BWT{} files (AA, TT, AT, and TA) containing a total of 1.49~Tbp from the \RS{} dataset to the native format used by \BWTmerge. Then we merged the \BWT{}s (in the given order). We used 128~MB or 256~MB run buffers and 256~MB or 512~MB thread buffers. The number of merge buffers was 4 or 5 with 512~MB thread buffers and 5 or 6 with 256~MB thread buffers, so that the files on disk were always merged from either 8~GB or 16~GB of thread buffers.
 
-RS: trade-offs with different parameters
+\begin{figure}[t!]
+\begin{center}
+\includegraphics{benchmark.pdf}%
+\hspace{-0.3in}%
+\includegraphics{comparison.pdf}
+\end{center}
+\caption{Left: Time/space trade-offs for merging four \BWT{} files containing a total of 1.49~Tbp. Label rXbYmZ denotes $X$~MB run buffers, $Y$~MB threads buffers, and $Z$ merge buffers. The dashed line represents the total size of the last pair of \BWT{}s to be merged. Right: Time/space trade-offs for building the \BWT{} of the 771~Gbp \CEU{} dataset.}\label{fig:benchmark}
+\end{figure}
 
-Note: input/output formats, BWT-merge times include verification
+The results of the benchmarks can be seen in Figure~\ref{fig:benchmark} (left). Merging took 31.4 to 35.7~hours and required 145 to 166~gigabytes of memory, depending on the parameter values. This corresponds to an average speed of 8.27 to 9.40~Mbp/s for inserting 1.06~Tbp into the initial file AA. As the total size of the last pair of \BWT{}s was 124.2~gigabytes, the memory overhead was 21.1 to 41.5~gigabytes. The temporary files required 287 to 306~gigabytes of disk space. For the further experiments, we chose 128\nobreakdash-megabyte run buffers and 256\nobreakdash-megabyte thread buffers. We use 5 merge buffers in the \emph{small} variant (memory overhead 21.1~GB) and 6 merge buffers in the \emph{fast} variant (overhead 30.8~GB).
+
+\smallbreak\noindent\textbf{Comparison.} In the next experiment, we compared the performance of \BWTmerge{} to the \ropebwt{} \cite{Li2011-2013} implementation of the BCR algorithm \cite{Bauer2013} and to \ropebwtii{} \cite{Li2014a}. These two tools are the fastest existing \BWT{} construction tools for read collections on general hardware \cite{Li2014a}. We ran \ropebwt{} with parameters \texttt{-btORf -abcr} and \ropebwtii{} with parameters \texttt{-bRm10g}. Due to memory constraints, we used the smaller \CEU{} dataset.
+
+We built the \BWT{} of the dataset in four ways. We concatenated all input files, and built the \BWT{} directly for the entire collection using both \ropebwt{} and \ropebwtii{}. We built the \BWT{} for each input file separately using \ropebwt{}, and then merged the results using \BWTmerge{} with small settings. Finally, we built the individual \BWT{}s using parallel \ropebwt{} jobs, and then merged them using \BWTmerge{} with fast settings. In each case, the tools were allowed to output the \BWT{} files in their preferred formats.
+
+The results can be seen in Figure~\ref{fig:benchmark} (right).
+% FIXME discussion of the results; note that ropebwt2 did not finish
+
+\smallbreak\noindent\textbf{ReadServer.} In the final experiment, we merged the 16 \BWT{} files in the \RS{} dataset into two files using the fast settings.
+% FIXME sizes in native/sga format, merging time/space
 
 
 \Section{Discussion}
 
-conclusions
+conclusions: fast, low memory overhead. because BWTs are in-memory data structures, they can be built on the same system they are going to be used
 
-sequence ordering: original order may be important, RLO/RCLO for compression, RLCO for mapping between reverse complements, mapping position for encoding pairing information
+sequence ordering: original order may be important, RLO/RCLO for compression, RLCO for mapping between reverse complements, mapping position for encoding pairing information; ReadServer currently uses RLO
 
 remove duplicates
 

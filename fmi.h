@@ -47,8 +47,8 @@ struct MergeParameters
   typedef typename RLArray<BlockArray>::run_type run_type;
 
   const static size_type RUN_BUFFER_SIZE = 8 * MEGABYTE;      // Runs.
-  const static size_type THREAD_BUFFER_SIZE = 512 * MEGABYTE; // Bytes.
-  const static size_type MERGE_BUFFERS = 5;
+  const static size_type THREAD_BUFFER_SIZE = 256 * MEGABYTE; // Bytes.
+  const static size_type MERGE_BUFFERS = 6;
   const static size_type BLOCKS_PER_THREAD = 4;
 
   const static std::string DEFAULT_TEMP_DIR;  // .
