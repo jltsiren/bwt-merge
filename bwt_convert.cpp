@@ -56,9 +56,19 @@ main(int argc, char** argv)
     {
     case 'i':
       input_tag = optarg;
+      if(!formatExists(input_tag))
+      {
+        std::cerr << "bwt_convert: Invalid input format: " << input_tag << std::endl;
+        std::exit(EXIT_FAILURE);
+      }
       break;
     case 'o':
       output_tag = optarg;
+      if(!formatExists(output_tag))
+      {
+        std::cerr << "bwt_convert: Invalid output format: " << output_tag << std::endl;
+        std::exit(EXIT_FAILURE);
+      }
       break;
     case '?':
     default:
@@ -66,17 +76,13 @@ main(int argc, char** argv)
     }
   }
 
-  if(optind < argc) { input_name = argv[optind]; }
-  else
-  {
-    std::cerr << "bwt_convert: Input file not specified" << std::endl;
-  }
-  if(optind + 1 < argc) { output_name = argv[optind + 1]; }
-  else
+  if(optind + 1 >= argc)
   {
     std::cerr << "bwt_convert: Output file not specified" << std::endl;
     std::exit(EXIT_FAILURE);
   }
+  input_name = argv[optind];
+  output_name = argv[optind + 1];
 
   std::cout << "Input:   " << input_name << " (" << input_tag << ")" << std::endl;
   std::cout << "Output:  " << output_name << " (" << output_tag << ")" << std::endl;

@@ -446,6 +446,18 @@ SGAFormat::write(std::ofstream& out, const BlockArray& data, const NativeHeader&
 
 //------------------------------------------------------------------------------
 
+bool
+formatExists(const std::string& format)
+{
+  return (format == NativeFormat::tag)
+      || (format == PlainFormatD::tag)
+      || (format == PlainFormatS::tag)
+      || (format == RFMFormat::tag)
+      || (format == SDSLFormat::tag)
+      || (format == RopeFormat::tag)
+      || (format == SGAFormat::tag);
+}
+
 void
 printFormats(std::ostream& stream)
 {

@@ -211,7 +211,7 @@ Once a thread buffer becomes full, we insert it into the global \emph{merge buff
 
 \Section{Implementation}
 
-We have implemented the proposed enhancements to the \BWT{} merging algorithm in a tool (\BWTmerge) intended for merging the \BWT{}s of large collections of short reads. \BWTmerge{} is written in C++, and the source code is available at GitHub.\footnote{\url{https://github.com/jltsiren/bwt-merge}} The implementation is built on top of the \emph{SDSL library} \cite{Gog2014b} and uses the features of C++11 extensively. As a result, it needs a fairly recent C++11 compiler to compile. We have built \BWTmerge{} on Linux and OS~X using g++.
+We have implemented the improved \BWT{} merging algorithm as a tool for merging the \BWT{}s of large collections of short reads. The tool, \BWTmerge{}, is written in C++, and the source code is available at GitHub.\footnote{\url{https://github.com/jltsiren/bwt-merge}} The implementation is built on top of the \emph{SDSL library} \cite{Gog2014b} and uses the features of C++11 extensively. As a result, it needs a fairly recent C++11 compiler to compile. We have successfully built \BWTmerge{} on Linux and OS~X using g++.
 
 The target environment of \BWTmerge{} is a \emph{single node} of a \emph{computer cluster}. The system should have tens of CPU cores and hundreds of gigabytes of memory. The amount of local disk space might not be much larger than memory size, while there can be plenty of shared disk space available. The number of search threads is equal to the number of CPU cores, while the merge phase uses just one producer thread and one consumer thread. By adjusting the sizes of run buffers and thread buffers and the number of merge buffers, \BWTmerge{} should work reasonably well in different environments.
 
@@ -261,9 +261,9 @@ We used two datasets from the phase 3 of the \emph{1000 Genomes Project} \cite{1
 \item \RS{} is from the \emph{ReadServer project}, which uses all low-coverage and exome data from the phase 3. After error correction, trimming the reads to 73 or 100~bp, and merging the duplicates, there are 53.0~billion unique reads for a total of 4.88~Tbp. The reads are in 16 run-length encoded \BWT{}s built using the \emph{String Graph Assembler} \cite{Simpson2012}, distributed according to the last two bases.
 
 \end{itemize}
-See Table~\ref{table:datasets} for further details on the datasets.
+See Table~\ref{table:datasets} for further details on the datasets. We used a development version of \BWTmerge{} that was essentially equivalent to v0.3 for the experiments. For the other tools, we used the versions that were available on GitHub in October~2015.
 
-\smallbreak\noindent\textbf{Benchmarking.} For benchmarking with different parameter values, we converted four \BWT{} files (AA, TT, AT, and TA) containing a total of 1.49~Tbp from the \RS{} dataset to the native format used by \BWTmerge. Then we merged the \BWT{}s (in the given order). We used 128~MB or 256~MB run buffers and 256~MB or 512~MB thread buffers. The number of merge buffers was 4 or 5 with 512~MB thread buffers and 5 or 6 with 256~MB thread buffers, so that the files on disk were always merged from either 8~GB or 16~GB of thread buffers.
+\smallbreak\noindent\textbf{Benchmarking.} For benchmarking with different parameter values, we converted four \BWT{} files (AA, TT, AT, and TA) containing a total of 1.49~Tbp from the \RS{} dataset to the \emph{native format} of \BWTmerge. This format includes the \BWT{} and the \rank/\select{} structures required by the FM-index. We then merged the \BWT{}s (in the given order). We used 128~MB or 256~MB run buffers and 256~MB or 512~MB thread buffers. The number of merge buffers was 4 or 5 with 512~MB thread buffers and 5 or 6 with 256~MB thread buffers, so that the files on disk were always merged from either 8~GB or 16~GB of thread buffers.
 
 \begin{figure}[t!]
 \begin{center}

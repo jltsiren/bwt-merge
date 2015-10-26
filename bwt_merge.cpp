@@ -89,9 +89,22 @@ main(int argc, char** argv)
       break;
     case 'i':
       tokenize(optarg, input_formats, ',');
+      for(size_type i = 0; i < input_formats.size(); i++)
+      {
+        if(!formatExists(input_formats[i]))
+        {
+          std::cerr << "bwt_merge: Invalid input format: " << input_formats[i] << std::endl;
+          std::exit(EXIT_FAILURE);
+        }
+      }
       break;
     case 'o':
       output_format = optarg;
+      if(!formatExists(output_format))
+      {
+        std::cerr << "bwt_merge: Invalid output format: " << output_format << std::endl;
+        std::exit(EXIT_FAILURE);
+      }
       break;
     case '?':
     default:

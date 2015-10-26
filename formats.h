@@ -157,6 +157,8 @@ struct SGAFormat
 
 //------------------------------------------------------------------------------
 
+bool formatExists(const std::string& format);
+
 void printFormats(std::ostream& stream);
 
 template<class Format>

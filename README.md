@@ -112,7 +112,12 @@ There are also other algorithms for building the BWT for large read collections 
 * `BlockArray` uses now 8 MB blocks instead of 1 MB blocks, changing the native file format.
 * More space-efficient rank/select construction for the BWT.
 * Formats: RopeBWT (new), faster writing in SGA format.
-* `bwt_merge`: Multiple input files, faster RA/BWT merging, multithreaded verification, adjustable input/output formats and temp directory, better default parameters.
+* `bwt_merge`: Several improvements:
+  * Multiple input files in different formats.
+  * Faster RA/BWT merging.
+  * Multithreaded verification.
+  * Adjustable temp directory.
+  * Better default parameters.
 
 ### Version 0.2.1
 
@@ -145,6 +150,10 @@ There are also other algorithms for building the BWT for large read collections 
   * in reverse lexicographic order
   * by position in the reference
 * `bwt_merge`: Option to remove duplicate sequences.
+* `bwt_merge`: Option to write intermediate merge results to temporary files.
+  * the latest result to avoid restarting after crashes
+  * all intermediate results
+* `bwt_merge`: Option to use different merge parameters for each merge.
 * `bwt_convert`: Build rank/select only when necessary.
 * Documentation in the wiki.
 
