@@ -91,11 +91,11 @@ The dramatic decrease in the cost of DNA sequencing has flooded the world with \
 
 \emph{De novo assembly} of sequenced genomes is still too difficult to be routinely done. As a practical alternative, bioinformaticians typically align the reads are aligned to a \emph{reference genome} of the same species. Because most reference genomes have been derived from the genomes of a small number of individuals, this introduces \emph{reference bias}, which may adversely affect the results of subsequent analysis. Switching from reference sequences to \emph{reference graphs} can help to reduce the bias, but such transition will likely take years \cite{Church2015}.
 
-The \emph{ReadServer project} at the Wellcome Trust Sanger Institute aims to avoid the reference bias entirely by developing tools for large-scale \emph{reference-free} genome analysis. Unique reads are compressed and indexed using the \emph{Burrows-Wheeler transform} (\BWT) \cite{Burrows1994}, while metadata databases contain information about the original reads. In the pilot phase, the ReadServer project works with the low-coverage and exome data from phase 3 of the 1000 Genomes Project. After error correction and trimming the reads to either 73~bp or 100~bp, the 86~Tbp of raw data consisting of 922~billion original reads is reduced to 4.88~Tbp and 53.0~billion unique sequences. These sequences are stored in 16 \BWT-based indexes \cite{Ferragina2005a} taking a total of 561.5~gigabytes.
+The \emph{Read Server project} at the Wellcome Trust Sanger Institute aims to avoid the reference bias entirely by developing tools for large-scale \emph{reference-free} genome analysis. Unique reads are compressed and indexed using the \emph{Burrows-Wheeler transform} (\BWT) \cite{Burrows1994}, while metadata databases contain information about the original reads. In the pilot phase, the Read Server project works with the low-coverage and exome data from phase 3 of the 1000 Genomes Project. After error correction and trimming the reads to either 73~bp or 100~bp, the 86~Tbp of raw data consisting of 922~billion original reads is reduced to 4.88~Tbp and 53.0~billion unique sequences. These sequences are stored in 16 \BWT-based indexes \cite{Ferragina2005a} taking a total of 561.5~gigabytes.
 
 Preprocessing large datasets can take days or even weeks. As a result, it is not always feasible to rebuild everything when new methods of analysis require new functionalities from the indexes. \BWT-based methods were chosen due to their versatility. A \emph{run-length encoded} \BWT{} compresses repetitive sequence collections quite well \cite{Maekinen2010}, while the similarities to the suffix tree and the suffix array make \BWT-based indexes suitable for a wide variety of \emph{pattern matching} and \emph{sequence analysis} tasks \cite{Ohlebusch2013,Maekinen2015}.
 
-ReadServer stores the unique reads in 16 \BWT-based indexes according to the last two bases of the read. This means that every query must be repeated 16 times, while the indexes require more space, as the compression cannot take advantage of the similarities between the reads in different indexes. Reducing the number of indexes would improve both index size and performance. However, the lack of \BWT{} construction algorithms that work with terabases of sequence data has made it infeasible so far.
+Read Server stores the unique reads in 16 \BWT-based indexes according to the last two bases of the read. This means that every query must be repeated 16 times, while the indexes require more space, as the compression cannot take advantage of the similarities between the reads in different indexes. Reducing the number of indexes would improve both index size and performance. However, the lack of \BWT{} construction algorithms that work with terabases of sequence data has made it infeasible so far.
 
 There are four often contradictory requirements for large-scale \BWT{} construction:
 \begin{itemize}
@@ -258,7 +258,7 @@ We used two datasets from the phase 3 of the \emph{1000 Genomes Project} \cite{1
 
 \item \CEU{} contains reads from high-coverage sequencing of the \emph{CEU trio} (individuals NA12878, NA12891, and NA12892). We downloaded the gzipped FASTQ files (run accessions SRR622457, SRR622458, and SRR622459) and concatenated the files representing the same individual. Then we corrected the sequencing errors with BFC \cite{Li2015} (\texttt{bfc -s 3g -t 16}) separately for each individual.
 
-\item \RS{} is from the \emph{ReadServer project}, which uses all low-coverage and exome data from the phase 3. After error correction, trimming the reads to 73 or 100~bp, and merging the duplicates, there are 53.0~billion unique reads for a total of 4.88~Tbp. The reads are in 16 run-length encoded \BWT{}s built using the \emph{String Graph Assembler} \cite{Simpson2012}, distributed according to the last two bases.
+\item \RS{} is from the \emph{Read Server project}, which uses all low-coverage and exome data from the phase 3. After error correction, trimming the reads to 73 or 100~bp, and merging the duplicates, there are 53.0~billion unique reads for a total of 4.88~Tbp. The reads are in 16 run-length encoded \BWT{}s built using the \emph{String Graph Assembler} \cite{Simpson2012}, distributed according to the last two bases.
 
 \end{itemize}
 See Table~\ref{table:datasets} for further details on the datasets. We used a development version of \BWTmerge{} that was essentially equivalent to v0.3 for the experiments. For the other tools, we used the versions that were available on GitHub in October~2015.
@@ -274,7 +274,9 @@ See Table~\ref{table:datasets} for further details on the datasets. We used a de
 \caption{Left: Time/space trade-offs for merging four \BWT{} files containing a total of 1.49~Tbp. Label rXbYmZ denotes $X$~MB run buffers, $Y$~MB threads buffers, and $Z$ merge buffers. The dashed line represents the total size of the last pair of \BWT{}s to be merged. Right: Time/space trade-offs for building the \BWT{} of the 771~Gbp \CEU{} dataset.}\label{fig:benchmark}
 \end{figure}
 
-The results of the benchmarks can be seen in Figure~\ref{fig:benchmark} (left). Merging took 31.4 to 35.7~hours and required 145 to 166~gigabytes of memory, depending on the parameter values. This corresponds to an average speed of 8.27 to 9.40~Mbp/s for inserting 1.06~Tbp into the initial file AA. As the total size of the last pair of \BWT{}s was 124.2~gigabytes, the memory overhead was 21.1 to 41.5~gigabytes. The temporary files required 287 to 306~gigabytes of disk space. For the further experiments, we chose 128\nobreakdash-megabyte run buffers and 256\nobreakdash-megabyte thread buffers. We use 5 merge buffers in the \emph{small} variant (memory overhead 21.1~GB) and 6 merge buffers in the \emph{fast} variant (overhead 30.8~GB).
+The results of the benchmarks can be seen in Figure~\ref{fig:benchmark} (left). The average speed for inserting 1.06~Tbp into the initial file AA ranged from 8.27 to 9.40~Mbp/s, depending on the parameter values. Memory overhead was from 21.1 to 41.5~GB on top of the 124.2~GB required by the last pair of \BWT{}s. The temporary files required 287 to 306~gigabytes of disk space. Thread buffer size and the number of merge buffers were the most important parameters. The larger the individual files are, the more memory the search phase uses and the faster the merge phase is. Increasing run buffer size to 256~MB made the search phase faster with 512~MB thread buffers and slower with 256~MB thread buffers.
+
+For the further experiments, we chose 128~MB run buffers and 256~MB thread buffers. We use 5 merge buffers in the \emph{small} variant (memory overhead 21.1~GB) and 6 merge buffers in the \emph{fast} variant (overhead 30.8~GB).
 
 \smallbreak\noindent\textbf{Comparison.} In the next experiment, we compared the performance of \BWTmerge{} to the \ropebwt{} \cite{Li2011-2013} implementation of the BCR algorithm \cite{Bauer2013} and to \ropebwtii{} \cite{Li2014a}. These two tools are the fastest existing \BWT{} construction tools for read collections on general hardware \cite{Li2014a}. We ran \ropebwt{} with parameters \texttt{-btORf -abcr} and \ropebwtii{} with parameters \texttt{-bRm10g}. Due to memory constraints, we used the smaller \CEU{} dataset.
 
@@ -283,17 +285,23 @@ We built the \BWT{} of the dataset in four ways. We concatenated all input files
 The results can be seen in Figure~\ref{fig:benchmark} (right).
 % FIXME discussion of the results; note that ropebwt2 did not finish
 
-\smallbreak\noindent\textbf{ReadServer.} In the final experiment, we merged the 16 \BWT{} files in the \RS{} dataset into two files using the fast settings.
+\smallbreak\noindent\textbf{Read Server.} In the final experiment, we merged the 16 \BWT{} files in the \RS{} dataset into two files using the fast settings.
 % FIXME sizes in native/sga format, merging time/space
 
 
 \Section{Discussion}
 
-conclusions: fast, low memory overhead. because BWTs are in-memory data structures, they can be built on the same system they are going to be used
+We have proposed an improved \BWT{} merging algorithm for large read collections. Our implementation of the algorithm in the \BWTmerge{} tool is fast enough to be used with terabases of sequence data. It requires only 20\nobreakdash--30~gigabytes of memory on top of the \BWT{}s to be merged. As \BWT-based indexes do random accesses to large arrays, they must reside in memory in most applications. Hence \BWTmerge{} can build the index on the same system as it is going to be used.
 
-sequence ordering: original order may be important, RLO/RCLO for compression, RLCO for mapping between reverse complements, mapping position for encoding pairing information; ReadServer currently uses RLO
+\BWTmerge{} can be used as a building block of a \BWT{} construction algorithm. We split the read collection into multiple subcollections, build the \BWT{}s of the subcollections with other tools, and merge the results. Depending on whether we run one or more \BWT{} construction jobs in parallel, the resulting algorithm can be slower but more space-efficient than the existing algorithms, or faster than them with similar memory usage.
 
-remove duplicates
+The most important feature of our algorithm is its low memory usage. With it, we can build the \BWT{}s of much larger read collections than before on commonly available hardware. As a concrete example, we merged the 16 Read Server \BWT{} files into two files. This reduced the number of servers required to house the indexes from three to two, and also improved the query performance of the servers.
+
+In the future, we are going to extend \BWTmerge{} to support different \emph{text orders}, and to optionally \emph{remove duplicate texts} from the merged collection. The current implementation maintains the existing order by inserting the texts from $\mBWT_{\Bcoll}$ after the texts in $\mBWT_{\Acoll}$. This makes it easy to determine the original identifiers of the texts without having to store a permutation. Other text orders can be useful for different purposes.
+
+Read Server stores the reads in \emph{reverse lexicographic order} to improve compression \cite{Cox2012}. We can maintain this order with a few changes to the search phase \cite{Li2014a}. Sorting the reads by their \emph{reverse complements} also improves compression in a similar way. In this order, $\mSA[\mBWT.\mselect(i,0)]$ points to the beginning of the reverse complement of read $T_{i}$, if the collection includes the reverse complement of each read \cite{Li2014a}.
+
+We can also sort the reads by their likely positions in a reference genome. This \emph{position order} is useful, if we also want to store \emph{pairing information} for the reads. Consider a graph with reads as its nodes and edges between paired reads. If we sort the reads in position order, most edges will be close to the diagonal of the edge matrix. Such matrices are very easy to compress.
 
 
 \Section{References}

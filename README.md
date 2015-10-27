@@ -20,7 +20,7 @@ There are three tools in the package:
 
 * `-r N` sets the size of **run buffers** to *N* megabytes (default 128). The unsorted run buffers are thread-specific and contain 16-byte values.
 * `-b N` sets the size of **thread buffers** to *N* megabytes (default 256). When the run buffer becomes full, its contents are sorted, compressed, and merged with the thread buffer.
-* `-m B` sets the number of **merge buffers** to *N* (default 6). The merge buffers are global and numbered from *0* to *N-1*. When a thread buffer becomes full, its contents are merged with one or more merge buffers. Merge buffer *i* contains *2^i* thread buffers. If there is no room in the merge buffers, all *2^N* thread buffers are merged and written to disk.
+* `-m N` sets the number of **merge buffers** to *N* (default 6). The merge buffers are global and numbered from *0* to *N-1*. When a thread buffer becomes full, its contents are merged with one or more merge buffers. Merge buffer *i* contains *2^i* thread buffers. If there is no room in the merge buffers, all *2^N* thread buffers are merged and written to disk.
 * `-t N` sets the number of **threads** to *N*. The default is the maximum number of threads OpenMP is allowed to use.
 * `-s N` sets the number of **sequence blocks** to *N* (default 4 per thread). Each block consists of roughly the same number of sequences, and the blocks are assigned dynamically to individual threads.
 * `-d directory` sets the **temporary directory** (default: working directory).
