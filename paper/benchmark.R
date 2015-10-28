@@ -42,12 +42,13 @@ nc = ncol(data)
 points(data[1:nr, 3], data[1:nr, 2] / 3600, type = "p", pch = 20)
 
 text(data[1, 3], data[1, 2] / 3600, data[1, 1], cex = 0.8, pos = 2)
-text(data[2, 3], data[2, 2] / 3600, data[2, 1], cex = 0.8, pos = 4)
-text(data[3, 3], data[3, 2] / 3600, data[3, 1], cex = 0.8, pos = 2)
+text(data[2, 3], data[2, 2] / 3600, data[2, 1], cex = 0.8, pos = 1)
+text(data[3, 3], data[3, 2] / 3600, data[3, 1], cex = 0.8, pos = 1)
 text(data[4, 3], data[4, 2] / 3600, data[4, 1], cex = 0.8, pos = 2)
 text(data[5, 3], data[5, 2] / 3600, data[5, 1], cex = 0.8, adj = c(0.65, 2))
 text(data[6, 3], data[6, 2] / 3600, data[6, 1], cex = 0.8, pos = 2)
 text(data[7, 3], data[7, 2] / 3600, data[7, 1], cex = 0.8, pos = 2)
+text(data[8, 3], data[8, 2] / 3600, data[8, 1], cex = 0.8, pos = 2)
 
 segments(124.2, 29, 124.2, 37, lty = "dashed")
 
