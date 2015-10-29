@@ -171,8 +171,12 @@ There are six basic ways of using the transformation in a \BWT{} construction al
 
 \Section{Merging \BWT{}s of text collections}
 
-% FIXME: a running example with 2 texts
-Assume that we have two text collections $\Acoll$ and $\Bcoll$ of total length $n_{\Acoll}$ and $n_{\Bcoll}$, respectively, and that we have already built \BWT{}s for them. Assume that we store the \BWT{}s in a two-level array, where the first level contains pointers to \emph{blocks} of size $b$ (bits). If the \BWT{} takes $x$ bits, the two-level array imposes $\frac{x}{b} \log x + \Oh(b)$ bits of space overhead. With $b = \sqrt{x \log x}$, the overhead becomes $\Oh(\sqrt{x \log x})$ bits.
+\begin{figure}[t!]
+\includegraphics[width=\textwidth]{merge_example.pdf}
+\caption{Merging the \BWT{}s of texts $R$ and $S$. Rank array \RA{} counts the number of suffixes of $R$ that are lexicographically smaller than or equal to the given suffix of $S$. We fill it by starting with $\mRA[1] = 1$ and iterating $\mRA[\mLF_{S}(i)] = \mLF_{R}(\mRA[i], \mBWT_{S}[i])$. Interleaving bitvector $B_{RS}$ tells whether the source of a character in the merged \BWT{} is in $\mBWT_{R}$ or $\mBWT_{S}$. We build it by setting bits $i+\mRA[i]$ to 1 for all $i$.}\label{fig:merge}
+\end{figure}
+
+Assume that we have two text collections $\Acoll$ and $\Bcoll$ of total length $n_{\Acoll}$ and $n_{\Bcoll}$, respectively, and that we have already built \BWT{}s for them. Assume that we store the \BWT{}s in two-level arrays, where the first level contains pointers to \emph{blocks} of size $b$ (bits). If the \BWT{} takes $x$ bits, the two-level array imposes $\frac{x}{b} \log x + \Oh(b)$ bits of space overhead. With $b = \sqrt{x \log x}$, the overhead becomes $\Oh(\sqrt{x \log x})$ bits.
 
 The algorithm for merging $\mBWT_{\Acoll}$ and $\mBWT_{\Bcoll}$ into $\mBWT_{\Acoll \cup \Bcoll}$ has three phases \cite{Siren2009}:
 \begin{enumerate}
@@ -184,7 +188,7 @@ The algorithm for merging $\mBWT_{\Acoll}$ and $\mBWT_{\Bcoll}$ into $\mBWT_{\Ac
 \item \textbf{Merge.} We interleave $\mBWT_{\Acoll}$ and $\mBWT_{\Bcoll}$ according to the rank array. If $\mRA_{\Bcoll \mid \Acoll}[i] = j$, the merged \BWT{} will have $j$ characters from $\mBWT_{\Acoll}$ before $\mBWT_{\Bcoll}[i]$. This phase takes $\Oh(n_{\Acoll} + n_{\Bcoll})$ time. By reusing the blocks of $\mBWT_{\Acoll}$ and $\mBWT_{\Bcoll}$ for $\mBWT_{\Acoll \cup \Bcoll}$ once we have processed them, we can merge the \BWT{}s almost in-place, using $\Oh(\sqrt{x \log x})$ bits of working space, where $x$ is the maximum of the sizes of $\mBWT_{\Acoll}$ and $\mBWT_{\Bcoll}$ in bits.
 
 \end{enumerate}
-The overall time complexity of \BWT{} merging is $\Oh(n_{\Acoll} + n_{\Bcoll} t_{r})$. The algorithm uses $n_{\Bcoll} \log n_{\Acoll} + \Oh(\sqrt{x \log x})$ bits of working space in addition to the \BWT{}s and the structures required to use them as FM-indexes.
+See Figure~\ref{fig:merge} for an example with two texts. The overall time complexity of \BWT{} merging is $\Oh(n_{\Acoll} + n_{\Bcoll} t_{r})$. The algorithm uses $n_{\Bcoll} \log n_{\Acoll} + \Oh(\sqrt{x \log x})$ bits of working space in addition to the \BWT{}s and the structures required to use them as FM-indexes.
 
 Alternatively, we can build the \emph{interleaving bitvector} $B_{\Acoll \cup \Bcoll}$. This bitvector is a binary sequence of length $n_{\Acoll} + n_{\Bcoll}$ that encodes the same information as the rank array. We set $B_{\Acoll \cup \Bcoll}[i + \mRA_{\Bcoll \mid \Acoll}[i]] = 1$ for $1 \le i \le n_{\Bcoll}$, denoting that $\mSA_{\Acoll \cup \Bcoll}[i + \mRA_{\Bcoll \mid \Acoll}[i]]$ points to a suffix of collection $\Bcoll$. This approach uses $n_{\Acoll} + n_{\Bcoll} + \Oh(\sqrt{x \log x})$ bits of working space.
 
@@ -202,7 +206,7 @@ The key to reducing the space overhead is that we do not need to keep the rank a
 % FIXME pseudocode if we have space for it
 Assume that we have a \emph{node} of the trie corresponding to suffix $X$, lexicographic rank $r$, and lexicographic range $[sp,ep]$. This means that suffix $X$ occurs $sp+1-ep$ times in collection $\Bcoll$, so we can output a \emph{run} of lexicographic ranks $(r, sp+1-ep)$. Afterwards, we proceed to the \emph{children} of the node. For each character $c \in \Sigma$, we create a node corresponding to suffix $cX$, lexicographic rank $\mLF_{\Acoll}(r,c)$, and lexicographic range $[\mLF_{\Bcoll}(sp-1, c) + 1, \mLF_{\Bcoll}(ep, c)]$. Searching the branches of the trie can be done in parallel using multiple \emph{threads}.
 
-\smallbreak\noindent\textbf{Buffering.} To reduce disk usage and the amount of disk I/O, we buffer and compress the lexicographic ranks before writing them to disk. Each thread has two buffers: a \emph{run buffer} and a \emph{thread buffer}. The run buffer stores the runs as pairs of integers $(r, \ell)$. Once the run buffer becomes full, we sort the runs by \emph{run heads} $r$, use \emph{differential encoding} for the run heads, and encode the differences and run lengths with a \emph{prefix-free code}. The compressed run buffer is then merged with the similarly compressed thread buffer.
+\smallbreak\noindent\textbf{Buffering.} To reduce disk I/O and disk usage, we buffer and compress the lexicographic ranks before writing them to disk. Each thread has two buffers: a \emph{run buffer} and a \emph{thread buffer}. The run buffer stores the runs as pairs of integers $(r, \ell)$. Once the run buffer becomes full, we sort the runs by \emph{run heads} $r$, use \emph{differential encoding} for the run heads, and encode the differences and run lengths with a \emph{prefix-free code}. The compressed run buffer is then merged with the similarly compressed thread buffer.
 
 Once a thread buffer becomes full, we insert it into the global \emph{merge buffers}. There are $k$ merge buffers, with buffer $i$ containing $2^{i-1}$ merged thread buffers. The insertion starts at buffer $1$. If buffer $i$ is empty, the thread inserts its thread buffer there and returns back to the search phase. Otherwise it takes the contents of merge buffer $i$, merges them with its thread buffer, and proceeds to buffer $i+1$. If a thread reaches buffer $k+1$, it writes its thread buffer to disk and returns back to work.
 
@@ -228,7 +232,7 @@ We ran our experiments on a system with two 16\nobreakdash-core AMD Opteron 6378
 
 \begin{table}[t!]
 \begin{center}
-\caption{Datasets used in the experiments. \BWT{} sizes are for the native format. RLO indicates that the reads are sorted in reverse lexicographic order in each input file.}\label{table:datasets}\smallskip%
+\caption{Datasets used in the experiments. \BWT{} sizes are for the native format. RLO indicates that the reads are sorted in reverse lexicographic order.}\label{table:datasets}\smallskip%
 {
 \renewcommand{\baselinestretch}{1}\footnotesize
 \begin{tabular}{cc|ccc|cc}
@@ -236,10 +240,10 @@ We ran our experiments on a system with two 16\nobreakdash-core AMD Opteron 6378
  & & & & & \multicolumn{2}{c}{\textbf{\BWT{} size}} \\
 \textbf{Dataset} & \textbf{File} & \textbf{Size} & \textbf{Reads} & \textbf{Read length} & \textbf{Unsorted} & \textbf{RLO} \\
 \hline
-\CEU & NA12878 &  284 Gbp & 2.81G &       101 bp & 50.3 GB \\
-     & NA12891 &  242 Gbp & 2.40G &       101 bp & 42.4 GB \\
-     & NA12892 &  245 Gbp & 2.42G &       101 bp & 43.8 GB \\
-     & Merged  &  771 Gbp & 7.63G &       101 bp & \\
+\CEU & NA12878 &  284 Gbp & 2.81G &       101 bp & 50.3 GB & 25.5 GB \\
+     & NA12891 &  242 Gbp & 2.40G &       101 bp & 42.4 GB & 19.7 GB \\
+     & NA12892 &  245 Gbp & 2.42G &       101 bp & 43.8 GB & 20.7 GB \\
+     & Merged  &  771 Gbp & 7.63G &       101 bp &  129 GB & \\
 \hline
 \RS  & AA      &  433 Gbp & 4.69G & 73 or 100 bp &      -- & 38.5 GB \\
      & TT      &  432 Gbp & 4.68G & 73 or 100 bp &      -- & 38.7 GB \\

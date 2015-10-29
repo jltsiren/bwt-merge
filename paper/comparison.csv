@@ -1,4 +1,6 @@
 RopeBWT,130073,238.0909
 RopeBWT2,201033,244.646
-BWT-merge (fast)
-BWT-merge (small)
+BWT-merge,240232,163.233
+RopeBWT (RLO)
+RopeBWT2 (RLO)
+BWT-merge (RLO)
