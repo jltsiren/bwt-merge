@@ -44,6 +44,7 @@ points(data[1:nr, 3], data[1:nr, 2] / 3600, type = "p", pch = 20)
 text(data[1, 3], data[1, 2] / 3600, data[1, 1], cex = 0.8, pos = 2) # RopeBWT
 text(data[2, 3], data[2, 2] / 3600, data[2, 1], cex = 0.8, pos = 2) # RopeBWT2
 text(data[3, 3], data[3, 2] / 3600, data[3, 1], cex = 0.8, pos = 2) # BWT-merge
+text(data[6, 3], data[6, 2] / 3600, data[6, 1], cex = 0.8, pos = 1) # BWT-merge (RLO)
 
 dev.off()
 q()
