@@ -81,7 +81,7 @@ Hinxton, Cambridge, CB10 1SA, UK \\
 
 
 \begin{abstract}
-In order to avoid the reference bias introduced by mapping reads to a reference genome, bioinformaticians are investigating reference-free methods for analyzing sequenced genomes. With large projects sequencing thousands of individuals, this raises the need for tools capable of processing terabases of sequence data. A key method is the Burrows-Wheeler transform (BWT), which is widely used for compressing and indexing reads. We propose a practical algorithm for building the BWT of a large read collection by merging the BWTs of smaller subcollections. The algorithm is capable of merging over 700 Gbp/day on a single system, with 20--30 gigabytes of memory overhead on top of the run-length encoded BWTs.
+In order to avoid the reference bias introduced by mapping reads to a reference genome, bioinformaticians are investigating reference-free methods for analyzing sequenced genomes. With large projects sequencing thousands of individuals, this raises the need for tools capable of processing terabases of sequence data. A key method is the Burrows-Wheeler transform (BWT), which is widely used for compressing and indexing reads. We propose a practical algorithm for building the BWT of a large read collection by merging the BWTs of smaller subcollections. With our largest 2.4 Tbp datasets, the algorithm is capable of merging 600 Gbp/day on a single system, using 30 gigabytes of memory overhead on top of the run-length encoded BWTs.
 \end{abstract}
 
 
@@ -232,7 +232,7 @@ We ran our experiments on a system with two 16\nobreakdash-core AMD Opteron 6378
 
 \begin{table}[t!]
 \begin{center}
-\caption{Datasets used in the experiments. The amount of sequence data and the number of reads in each file, and the size of the \BWT{} in the native format and in the Read Server format. RLO indicates that the reads are sorted in reverse lexicographic order.}\label{table:datasets}\smallskip%
+\caption{Datasets used in the experiments. The amount of sequence data and the number of reads in each file, and the size of the \BWT{} in the native format and in the Read Server format. RLO indicates that the reads are sorted in reverse lexicographic order. The numbers in parentheses are estimates.}\label{table:datasets}\smallskip%
 {
 \renewcommand{\baselinestretch}{1}\footnotesize
 \begin{tabular}{cc|cc|cc|cc}
@@ -240,22 +240,22 @@ We ran our experiments on a system with two 16\nobreakdash-core AMD Opteron 6378
  & & \multicolumn{2}{c|}{\textbf{Data}} & \multicolumn{2}{c|}{\textbf{Native \BWT}} & \multicolumn{2}{c}{\textbf{Read Server}} \\
 \textbf{Dataset} & \textbf{File} & \textbf{Size} & \textbf{Reads} & \textbf{Unsorted} & \textbf{RLO} & \textbf{\BWT} & \textbf{\FMI} \\
 \hline
-\CEU & NA12878 &  284 Gbp & 2.81G & 50.3 GB & 25.5 GB &      -- &      -- \\
-     & NA12891 &  242 Gbp & 2.40G & 42.4 GB & 19.7 GB &      -- &      -- \\
-     & NA12892 &  245 Gbp & 2.42G & 43.8 GB & 20.7 GB &      -- &      -- \\
-     & Merged  &  771 Gbp & 7.63G &  129 GB & 58.9 GB &      -- &      -- \\
+\CEU & NA12878 &  284 Gbp & 2.81G & 50.3 GB & 25.5 GB &      -- &       -- \\
+     & NA12891 &  242 Gbp & 2.40G & 42.4 GB & 19.7 GB &      -- &       -- \\
+     & NA12892 &  245 Gbp & 2.42G & 43.8 GB & 20.7 GB &      -- &       -- \\
+     & Merged  &  771 Gbp & 7.63G &  129 GB & 58.9 GB &      -- &       -- \\
 \hline
-\RS  & AA      &  433 Gbp & 4.69G &      -- & 38.5 GB & 39.9 GB & 48.3 GB \\
-     & TT      &  432 Gbp & 4.68G &      -- & 38.7 GB & 40.0 GB & 48.4 GB \\
-     & AT      &  275 Gbp & 2.98G &      -- & 26.6 GB & 26.9 GB & 32.6 GB \\
-     & TA      &  355 Gbp & 3.84G &      -- & 32.7 GB & 33.5 GB & 40.6 GB \\
-     & Merged  & 1.49 Tbp & 16.2G &      -- &  117 GB &  126 GB &  152 GB \\
+\RS  & AA      &  433 Gbp & 4.69G &      -- & 38.5 GB & 39.9 GB &  48.3 GB \\
+     & TT      &  432 Gbp & 4.68G &      -- & 38.7 GB & 40.0 GB &  48.4 GB \\
+     & AT      &  275 Gbp & 2.98G &      -- & 26.6 GB & 26.9 GB &  32.6 GB \\
+     & TA      &  355 Gbp & 3.84G &      -- & 32.7 GB & 33.5 GB &  40.6 GB \\
+     & Merged  & 1.49 Tbp & 16.2G &      -- &  117 GB &  126 GB & (152 GB) \\
 \hline
-\RS  & *A, *C  & 2.45 Tbp & 26.5G &      -- &  225 GB &  232 GB &  281 GB \\
-     & Merged  & 2.45 Tbp & 26.5G &      -- &         &         &         \\
+\RS  & *A, *C  & 2.45 Tbp & 26.5G &      -- &  225 GB &  232 GB &   281 GB \\
+     & Merged  & 2.45 Tbp & 26.5G &      -- &  181 GB &  197 GB & (239 GB) \\
 \hline
-\RS  & *G, *T  & 2.44 Tbp & 26.5G &      -- &  226 GB &  232 GB &  281 GB \\
-     & Merged  & 2.44 Tbp & 26.5G &      -- &         &         &         \\
+\RS  & *G, *T  & 2.44 Tbp & 26.5G &      -- &  226 GB &  232 GB &   281 GB \\
+     & Merged  & 2.44 Tbp & 26.5G &      -- &  180 GB &  197 GB & (238 GB) \\
 \hline
 \end{tabular}}
 \end{center}
@@ -284,22 +284,22 @@ See Table~\ref{table:datasets} for further details on the datasets. We used a de
 
 The results of the benchmarks can be seen in Figure~\ref{fig:benchmark} (left). The average speed for inserting 1.06~Tbp into the initial file AA ranged from 8.27 to 9.40~Mbp/s, depending on the parameter values. Memory overhead was from 21.1 to 41.5~GB on top of the 124.2~GB required by the last pair of \BWT{}s. The temporary files required 287 to 306~gigabytes of disk space. Thread buffer size and the number of merge buffers were the most important parameters. The larger the individual files are, the more memory the search phase uses and the faster the merge phase is. Increasing run buffer size to 256~MB made the search phase faster with 512~MB thread buffers and slower with 256~MB thread buffers.
 
-For the further experiments, we chose 128~MB run buffers, and 256~MB thread buffers and 6 merge buffers (overhead 30.8~GB).
+For the further experiments, we chose 128~MB run buffers, 256~MB thread buffers, and 6 merge buffers (overhead 30.8~GB).
 
 \smallbreak\noindent\textbf{Comparison.} In the next experiment, we compared the performance of \BWTmerge{} to the \ropebwt{} \cite{Li2011-2013} implementation of the BCR algorithm \cite{Bauer2013} and to \ropebwtii{} \cite{Li2014a}. These two tools are the fastest existing \BWT{} construction tools for read collections on general hardware \cite{Li2014a}. We ran \ropebwt{} with parameters \texttt{-btORf -abcr} and \ropebwtii{} with parameters \texttt{-bRm10g}. For some runs, we also used \texttt{-s} with both tools to sort the reads in \emph{reverse lexicographic order} (RLO) to improve compression. Due to memory constraints, we used the smaller \CEU{} dataset.
 
 We built the \BWT{} of the dataset in several ways. We concatenated all input files, and built the \BWT{} directly for the entire collection using both \ropebwt{} and \ropebwtii{}. We also built the \BWT{} for each input file separately using \ropebwt{}, and then merged the results using \BWTmerge{}. Finally, we repeated everything with the reads sorted in reverse lexicographic order. In each case, the tools were allowed to output the \BWT{} files in their preferred formats.
 
-The results can be seen in Figure~\ref{fig:benchmark} (right).
-% FIXME discussion of the results; note that ropebwt2 did not finish without RLO; BWT-merge does not do RLO
+The results can be seen in Figure~\ref{fig:benchmark} (right). When the reads are in the original order, \BWTmerge{} is 1.85x slower and 1.46x more space-efficient than building the final \BWT{} directly with \ropebwt. \ropebwt2{} ran out of memory when processing the last 10~Gbpp batch of reads. \BWTmerge{} would have been about 1.2x slower and 1.5x more space-efficient than it. The running time of \BWTmerge{} was split almost evenly between building the \BWT{}s of individual files and merging them.
 
-\smallbreak\noindent\textbf{Read Server.} In the final experiment, we merged the 16 \BWT{} files in the \RS{} dataset into two files.
-% FIXME sizes in native/sga format, merging time/space
+When we tell \ropebwt{} and \ropebwt2{} to sort the reads in reverse lexicographic order, all tools improve their performance. \BWTmerge{} is now 1.70x slower and 2.12x more space-efficient than \ropebwt{} and 1.21x \emph{faster} and 1.09x more space-efficient than \ropebwt2. Again, \BWTmerge{} spent around half of the time building the individual \BWT{}s and another half merging them. Note that the final \BWT{} built by \BWTmerge{} is not in reverse lexicographic order, unlike the ones built with \ropebwt{} and \ropebwt2{}. When such functionality is implemented, \BWTmerge{} should be somewhat slower and somewhat more space-efficient than when maintaining the existing order of reads.
+
+\smallbreak\noindent\textbf{Read Server.} In the final experiment, we merged the 16 \BWT{} files in the \RS{} dataset into two files (AA, CA, TA, GA, AC, CC, GC, and TC in the first collection; TT, GT, CT, AT, TG, GG, CG, AG in the second one). Merging the \BWT{}s took 81.3~hours and 83.0~hours, required 221~gigabytes and 219~gigabytes of memory, and used 297~gigabytes and 300~gigabytes of disk space, respectively. We reduced the size of the FM-indexes from around 560~GB to 480~GB in the format used in the Read Server. With the native format of \BWTmerge{}, the total size of the indexes was down to 360~GB. This will make it possible to host the indexes on two servers instead of the original three.
 
 
 \Section{Discussion}
 
-We have proposed an improved \BWT{} merging algorithm for large read collections. Our implementation of the algorithm in the \BWTmerge{} tool is fast enough to be used with terabases of sequence data. It requires only 20\nobreakdash--30~gigabytes of memory on top of the \BWT{}s to be merged. As \BWT-based indexes do random accesses to large arrays, they must reside in memory in most applications. Hence \BWTmerge{} can build the index on the same system as it is going to be used.
+We have proposed an improved \BWT{} merging algorithm for large read collections. Our implementation of the algorithm in the \BWTmerge{} tool is fast enough to be used with terabases of sequence data. It requires only 30~gigabytes of memory on top of the \BWT{}s to be merged. As \BWT-based indexes do random accesses to large arrays, they must reside in memory in most applications. Hence \BWTmerge{} can build the index on the same system as it is going to be used.
 
 \BWTmerge{} can be used as a building block of a \BWT{} construction algorithm. We split the read collection into multiple subcollections, build the \BWT{}s of the subcollections with other tools, and merge the results. The resulting algorithm is typically slower but more space-efficient than the existing algorithms.
 
