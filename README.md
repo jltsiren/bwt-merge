@@ -2,7 +2,7 @@
 
 This is a tool for merging the Burrows-Wheeler transforms (BWT) of large read collections. Querying the merged BWT is often faster than querying the BWT of each dataset separately. If the datasets are similar (e.g. reads from similar genomes), a run-length encoded merged BWT will usually be smaller than the run-length encoded BWTs of individual datasets.
 
-If the dataset is up to a few hundred gigabytes in size, it is probably more practical to use another tool ([see the wiki](https://github.com/jltsiren/bwt-merge/wiki/BWTConstruction)) to build the merged BWT directly.
+If the dataset is up to a few hundred gigabytes in size, it is probably more practical to use another tool ([see the wiki](https://github.com/jltsiren/bwt-merge/wiki/BWT-Construction)) to build the merged BWT directly.
 
 Further documentation can be found [in the wiki](https://github.com/jltsiren/bwt-merge/wiki).
 
@@ -28,7 +28,7 @@ There are three tools in the package:
 * `-i formats` speficies **input formats** (default: `native`). Multiple comma-separated formats can be specified.
 * `-o format` specifies the **output format** (default: `native`).
 
-The list of supported BWT formats includes `native`, `plain_default`, `plain_sorted`, `rfm`, `ropebwt`, `sdsl`, and `sga`. [See the wiki](https://github.com/jltsiren/bwt-merge/wiki/BWTFormats) for further information.
+The list of supported BWT formats includes `native`, `plain_default`, `plain_sorted`, `rfm`, `ropebwt`, `sdsl`, and `sga`. [See the wiki](https://github.com/jltsiren/bwt-merge/wiki/BWT-Formats) for further information.
 
 ## References
 
@@ -36,6 +36,10 @@ Wing-Kai Hon, Tak-Wah Lam, Kunihiko Sadakane, Wing-Kin Sung, Siu-Ming Yiu:
 **A space and time efficient algorithm for constructing compressed suffix arrays**.
 Algorithmica 48(1): 23-36, 2007.
 [DOI: 10.1007/s00453-006-1228-8](http://dx.doi.org/10.1007/s00453-006-1228-8)
+
+Jouni Sirén: **Compressed Suffix Arrays for Massive Data**.
+Proc. SPIRE 2009, Springer LNCS 5721, pp. 63-74, Saariselkä, Finland, August 25-27, 2009.
+[DOI: 10.1007/978-3-642-03784-9_7](http://dx.doi.org/10.1007/978-3-642-03784-9_7)
 
 Jouni Sirén: **Compressed Full-Text Indexes for Highly Repetitive Collections**.
 PhD Thesis, University of Helsinki, June 2012.
