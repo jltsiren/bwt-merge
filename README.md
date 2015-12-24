@@ -51,4 +51,5 @@ Theoretical Computer Science 483: 134-148, 2013.
 [DOI: 10.1016/j.tcs.2012.02.002](http://dx.doi.org/10.1016/j.tcs.2012.02.002)
 
 Jouni Sirén: **Burrows-Wheeler transform for terabases**.
+Accepted to DCC 2016.
 [arXiv:1511.00898](http://arxiv.org/abs/1511.00898)
