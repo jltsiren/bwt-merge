@@ -2,6 +2,13 @@ SOURCES=$(wildcard *.tex)
 
 all: paper.pdf
 
+# Final pdf for DCC must be version 1.5 with all fonts embedded.
+embedded.pdf: paper.pdf
+	gs -dSAFER -dNOPLATFONTS -dNOPAUSE -dBATCH \
+	-sDEVICE=pdfwrite -sPAPERSIZE=letter -dCompatibilityLevel=1.5 -dPDFSETTINGS=/printer \
+	-dMaxSubsetPct=100 -dSubsetFonts=true -dEmbedAllFonts=true \
+	-sOutputFile=embedded.pdf -f paper.pdf
+
 paper.pdf: benchmark.pdf comparison.pdf merge_example.pdf paper.bbl $(SOURCES)
 	pdflatex paper
 	pdflatex paper
