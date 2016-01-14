@@ -96,9 +96,9 @@ Preprocessing large datasets can take weeks. It is often not feasible to rebuild
 
 The \emph{Read Server} project at the Sanger Institute develops tools for large-scale \emph{reference-free} genome analysis, avoiding reference bias. Unique reads are compressed and indexed using the \BWT, while metadata databases contain information on the original reads. Initially, the project works with
 % arXiv:
-%the low-coverage and exome data from phase 3 of the 1000 Genomes Project.
+the low-coverage and exome data from phase 3 of the 1000 Genomes Project.
 % DCC:
-data from the 1000 Genomes Project.
+%data from the 1000 Genomes Project.
 After error correction and trimming the reads to either 73~bp or 100~bp, the 922~billion original reads (86~Tbp) are reduced to 53.0~billion unique sequences (4.88~Tbp). These sequences are stored in 16 \BWT-based indexes \cite{Ferragina2005a} taking a total of 561.5~gigabytes.
 
 The unique reads are partitioned between the \BWT{}s by the last two bases. Every query must be repeated in all 16 indexes. The \BWT{}s also require more space, as we cannot compress the similarities between the reads in different indexes. Reducing the number of indexes would improve both memory usage and query performance. This requires \BWT{} construction algorithms that can handle terabases of data.
@@ -111,9 +111,9 @@ There are four often contradictory requirements for large-scale \BWT{} construct
 
 The most straightforward approach to \BWT{} construction is to build a \emph{suffix array} using a fast general-purpose algorithm \cite{Mori2008,Nong2011}, and then derive the \BWT{} from the suffix array. These algorithms cannot be used with large datasets, as they require much more memory than the sequences themselves. Suffix arrays can be built on disk \cite{Gonnet1992}, but even the fastest algorithms cannot index the data faster than 1\nobreakdash--2~Mbp/s
 % DCC:
-\cite{Kaerkkaeinen2015a}.
+%\cite{Kaerkkaeinen2015a}.
 % arXiv:
-%\cite{Bingmann2013,Kaerkkaeinen2014a,Nong2014,Nong2015,Kaerkkaeinen2015a,Liu2015a}.
+\cite{Bingmann2013,Kaerkkaeinen2014a,Nong2014,Nong2015,Kaerkkaeinen2015a,Liu2015a}.
 
 There are many \emph{direct} \BWT{} construction algorithms that do not need the suffix array. Some require a limited amount of working space on top of the \BWT{} \cite{Hon2007,Kaerkkaeinen2007,Siren2009,Okanohara2009}, while others use the disk as additional working space \cite{Ferragina2012,Beller2013}. These general-purpose algorithms rarely exceed 1\nobreakdash--2~Mbp/s. \emph{Specialized algorithms} for DNA sequences achieve better time/space trade-offs. Some can index 5\nobreakdash--10~Mbp/s using ordinary hardware, with their memory usage becoming the bottleneck after about 1~Tbp \cite{Bauer2013,Li2014a}. GPU-based algorithms are even faster, but their memory usage is also higher \cite{Liu2014,Pantaleoni2014}. Distributing the \BWT{} construction to multiple nodes can remove the obvious bottlenecks, at the price of using more resources for the construction \cite{Wang2015}.
 
@@ -136,7 +136,7 @@ The \emph{FM-index} (\FMI) \cite{Ferragina2005a} is a full-text index based on t
 
 The FM-index \emph{samples} some suffix array pointers, including the one to the beginning of the text. When unsampled pointers are needed, they are derived by using \LF\nobreakdash-mapping. If $\mSA[i]$ is not sampled, the FM-index proceeds to $\mLF(i)$ and continues from there. If $\mSA[\mLF^{k}(i)]$ is the first sample encountered, $\mSA[i] = \mSA[\mLF^{k}(i)] + k$.
 % arXiv:
-%Depending on the way the samples are selected, we may need a binary sequence to mark the pointers that have been sampled.
+Depending on the way the samples are selected, we may need a binary sequence to mark the pointers that have been sampled.
 
 Assume that we have an ordered \emph{collection} of texts $\Acoll = (T_{1}, \dotsc, T_{m})$ of total length $n = \abs{\Acoll} = \sum_{i} \abs{T_{i}}$. We want to build a (generalized) \BWT{} for the collection. The usual way is to make all endmarkers distinct, giving the one at the end of text $T_{i}$ character value $(0,i)$. This also makes all suffixes of the collection distinct. To save space, we still encode each endmarker as a $0$ in the \BWT{}. Because of this, \LF\nobreakdash-mapping does not work with $c = 0$, and we cannot match patterns spanning text boundaries.
 
@@ -174,8 +174,9 @@ If we split a text collection $\Acoll$ of total length $n$ into $p$ \emph{subcol
 
 When the collection is large, the space overhead of the construction algorithm often determines whether we can build the \BWT{}.
 % arXiv:
-%Even if a static encoding of the \BWT{} fits in memory, a dynamic encoding may already be too large. The space overhead from the rank array or the interleaving bitvector (or their equivalents in the other space-efficient algorithms) may also be too much. We can make the rank array fit in memory by increasing the number of subcollections, but that can make the construction too slow.
-%
+Even if a static encoding of the \BWT{} fits in memory, a dynamic encoding may already be too large. The space overhead from the rank array or the interleaving bitvector (or their equivalents in the other space-efficient algorithms) may also be too much. We can make the rank array fit in memory by increasing the number of subcollections, but that can make the construction too slow.
+
+% DCC: continues the second paragraph of the section
 We can reduce the overhead by writing the lexicographic ranks to \emph{disk}. If we sort the ranks on disk, we just need to scan the rank array once during the merge phase. We can also \emph{compress} the ranks before writing them to disk and \emph{interleave} the sorting with the search and merge phases. We now describe the key ideas for fast and space-efficient \BWT{} construction.
 
 \smallbreak\noindent\textbf{Search.} Instead of searching for every text in collection $\Bcoll$ separately, we can search for the \emph{reverse trie} of the collection. Assume that there are $m_{\Acoll}$ texts in collection $\Acoll$ and $m_{\Bcoll}$ texts in collection $\Bcoll$. The \emph{root} of the trie corresponds to suffix $\$$, which has lexicographic rank $m_{\Acoll}$ in $\Acoll$ and corresponds to lexicographic range $[1,m_{\Bcoll}]$ in $\Bcoll$.
@@ -201,14 +202,14 @@ For \rank/\select{} support, we divide the \BWT{}s into 64\nobreakdash-byte bloc
 
 We use two-level arrays with 8\nobreakdash-megabyte blocks to store the \BWT{}s and the compressed buffers, managing the blocks using \texttt{mmap()} and \texttt{munmap()}. This reduces the space overhead by tens of gigabytes over using \texttt{malloc()} and \texttt{free()}.
 % arXiv:
-%When multiple threads allocate memory in small enough blocks, the multithreaded \emph{glibc} implementation of \texttt{malloc()} creates a number of additional heaps that will never grow larger than 64~MB. Each thread tries to reuse the heap it used for the last allocation. If a heap is full or the thread cannot acquire the mutex, it moves to the next heap. With our workload of tens of threads allocating and freeing hundreds of gigabytes of memory, this created thousands of heaps with holes in the middle. Most \texttt{free()} calls did not release the memory back to the operating system, while it took a while before any thread could reuse the holes created by the \texttt{free()} calls.
+When multiple threads allocate memory in small enough blocks, the multithreaded \emph{glibc} implementation of \texttt{malloc()} creates a number of additional heaps that will never grow larger than 64~MB. Each thread tries to reuse the heap it used for the last allocation. If a heap is full or the thread cannot acquire the mutex, it moves to the next heap. With our workload of tens of threads allocating and freeing hundreds of gigabytes of memory, this created thousands of heaps with holes in the middle. Most \texttt{free()} calls did not release the memory back to the operating system, while it took a while before any thread could reuse the holes created by the \texttt{free()} calls.
 
 
 \Section{Experiments}
 
 We used a system with two 16\nobreakdash-core AMD Opteron 6378 processors and 256 gigabytes of memory. The system was running Ubuntu 12.04 on Linux kernel 3.2.0. We used a development version of \BWTmerge{}  equivalent to v0.3, and the versions of the other tools that were available on GitHub in October 2015. All software was compiled with gcc/g++ version 4.9.2. We stored the input/output files on a distributed Lustre file system and used a local 0.5~TB disk for temporary files. \BWTmerge{} used 32 threads, while the other \BWT{} construction tools were limited by design to 4 or 5 threads.
 % arXiv:
-%The merging times include verification by querying the \BWT{}s with 2~million $32$\nobreakdash-mers.
+The merging times include verification by querying the \BWT{}s with 2~million $32$\nobreakdash-mers.
 
 \begin{table}[t!]
 \begin{center}
@@ -222,18 +223,18 @@ We used a system with two 16\nobreakdash-core AMD Opteron 6378 processors and 25
 \textbf{Dataset} & \textbf{Size} & \textbf{Reads} & \textbf{Unsorted} & \textbf{RLO} & \textbf{\BWT} & \textbf{\FMI} \\
 \hline
 \CEU: All           &  771 Gbp & 7.63G &  136 GB & 65.9 GB &      -- &       -- \\
-% arXiv:
-%NA12878             &  284 Gbp & 2.81G & 50.3 GB & 25.5 GB &      -- &       -- \\
-%NA12891             &  242 Gbp & 2.40G & 42.4 GB & 19.7 GB &      -- &       -- \\
-%NA12892             &  245 Gbp & 2.42G & 43.8 GB & 20.7 GB &      -- &       -- \\
+% arXiv: (individual datasets)
+NA12878             &  284 Gbp & 2.81G & 50.3 GB & 25.5 GB &      -- &       -- \\
+NA12891             &  242 Gbp & 2.40G & 42.4 GB & 19.7 GB &      -- &       -- \\
+NA12892             &  245 Gbp & 2.42G & 43.8 GB & 20.7 GB &      -- &       -- \\
 Merged              &  771 Gbp & 7.63G &  129 GB & 58.9 GB &      -- &       -- \\
 \hline
 \RS: AA, TT, AT, TA & 1.49 Tbp & 16.2G &      -- &  136 GB &  140 GB &   170 GB \\
-% arXiv:
-%AA                  &  433 Gbp & 4.69G &      -- & 38.5 GB & 39.9 GB &  48.3 GB \\
-%TT                  &  432 Gbp & 4.68G &      -- & 38.7 GB & 40.0 GB &  48.4 GB \\
-%AT                  &  275 Gbp & 2.98G &      -- & 26.6 GB & 26.9 GB &  32.6 GB \\
-%TA                  &  355 Gbp & 3.84G &      -- & 32.7 GB & 33.5 GB &  40.6 GB \\
+% arXiv: (individual datasets)
+AA                  &  433 Gbp & 4.69G &      -- & 38.5 GB & 39.9 GB &  48.3 GB \\
+TT                  &  432 Gbp & 4.68G &      -- & 38.7 GB & 40.0 GB &  48.4 GB \\
+AT                  &  275 Gbp & 2.98G &      -- & 26.6 GB & 26.9 GB &  32.6 GB \\
+TA                  &  355 Gbp & 3.84G &      -- & 32.7 GB & 33.5 GB &  40.6 GB \\
 Merged              & 1.49 Tbp & 16.2G &      -- &  117 GB &  126 GB & (152 GB) \\
 \hline
 \RS: *A, *C         & 2.45 Tbp & 26.5G &      -- &  225 GB &  232 GB &   281 GB \\
@@ -264,22 +265,23 @@ Our datasets come from phase 3 of the \emph{1000 Genomes Project} \cite{1000GP20
 
 The results can be seen in Figure~\ref{fig:benchmark} (left). The average speed for inserting 1.06~Tbp into file AA ranged from 8.27~Mbp/s to 9.40~Mbp/s, depending on the parameter values. Memory overhead was 21.1~GB to 41.5~GB on top of the 124.2~GB required by the last pair of \BWT{}s.
 % arXiv:
-%The temporary files used 287 to 306~gigabytes of disk space. Thread buffer size and the number of merge buffers were the most important parameters. The larger the individual files are, the more memory the search phase uses and the faster the merge phase is. Increasing run buffer size to 256~MB made the search phase faster with 512~MB thread buffers and slower with 256~MB thread buffers.
-%
+The temporary files used 287 to 306~gigabytes of disk space. Thread buffer size and the number of merge buffers were the most important parameters. The larger the individual files are, the more memory the search phase uses and the faster the merge phase is. Increasing run buffer size to 256~MB made the search phase faster with 512~MB thread buffers and slower with 256~MB thread buffers.
+% (always continues the paragraph)
 For the further experiments, we chose 128~MB run buffers, 256~MB thread buffers, and 6 merge buffers (overhead 30.8~GB).
 
 \smallbreak\noindent\textbf{Comparison.} In the next experiment, we compared \BWTmerge{} to the fastest \BWT{} construction tools on general hardware \cite{Li2014a}. We built the \BWT{} of the \CEU{} dataset using \ropebwt{} \cite{Li2011-2013} with parameters \texttt{-btORf -abcr} and \ropebwtii{} \cite{Li2014a} with parameters \texttt{-bRm10g}. We also built individual \BWT{}s using \ropebwt{} and merged them with \BWTmerge. All tools were set to write the \BWT{}s in their preferred formats.
 
 The results are in Figure~\ref{fig:benchmark} (right). When the reads are in the original order, \BWTmerge{} is 1.85x slower and 1.46x more space-efficient than \ropebwt. \ropebwt2{} ran out of memory just before finishing. It would have been about 1.2x faster and 1.5x less space-efficient than \BWTmerge. The running time of \BWTmerge{} was split evenly between \BWT{} construction and merging.
-% arXiv:
-%
+% arXiv: (paragraph break here)
+% DCC: (no paragraph break)
+
 When \ropebwt{} and \ropebwt2{} sort the reads in \emph{reverse lexicographic order} (RLO) to improve compression, all tools improve their performance. \BWTmerge{} becomes 1.70x slower and 2.12x more space-efficient than \ropebwt{}, and 1.21x \emph{faster} and 1.09x more space-efficient than \ropebwt2.
 % arXiv:
-%Again, \BWTmerge{} spent around half of the time building the individual \BWT{}s and another half merging them. Note that \BWTmerge{} builds a \BWT{} for the concatenation of three input files that are in RLO, while the \BWT{}s produced by the other tools are completely in RLO. Maintaining RLO during merging would reduce the size of the final \BWT{} from 58.9~GB to 54.4~GB.
+Again, \BWTmerge{} spent around half of the time building the individual \BWT{}s and another half merging them. Note that \BWTmerge{} builds a \BWT{} for the concatenation of three input files that are in RLO, while the \BWT{}s produced by the other tools are completely in RLO. Maintaining RLO during merging would reduce the size of the final \BWT{} from 58.9~GB to 54.4~GB.
 
 \smallbreak\noindent\textbf{Read Server.} In the last experiment, we merged the 16 \BWT{} files in the \RS{} dataset into two files (AA, CA, TA, GA, AC, CC, GC, and TC into the first file; TT, GT, CT, AT, TG, GG, CG, AG into the second one). Merging the \BWT{}s took 81.3~hours and 83.0~hours, required 221~GB and 219~GB of memory, and used 297~GB and 300~GB of disk space, respectively. This reduced the size of the FM-indexes from around 560~GB to 480~GB. By converting the \BWT{}s to the native format of \BWTmerge{}, we further reduced the size of the indexes to 360~GB.
 % arXiv:
-%This makes it possible to host the indexes on two servers instead of the original three.
+This makes it possible to host the indexes on two servers instead of the original three.
 
 
 \Section{Conclusions}
@@ -293,11 +295,13 @@ The most important feature of our algorithm is its low memory usage. With it, we
 In the future, we are going to extend \BWTmerge{} to support different \emph{text orders}, and to optionally \emph{remove duplicate texts} from the merged collection. The current algorithm maintains the existing order by inserting the texts from $\mBWT_{\Bcoll}$ after the texts in $\mBWT_{\Acoll}$. This makes it easy to determine the original text identifiers without having to store a permutation. Other text orders are useful for different purposes.
 
 % arXiv:
-%Read Server stores the reads in \emph{reverse lexicographic order} to improve compression \cite{Cox2012}. We can maintain this order with a few changes to the search phase \cite{Li2014a}. Sorting the reads by their \emph{reverse complements} also improves compression in a similar way. In this order, $\mSA[\mBWT.\mselect(i,0)]$ points to the beginning of the reverse complement of read $T_{i}$, if the collection includes the reverse complement of every read \cite{Li2014a}. With \emph{lexicographic order}, we can determine $\mSA[i]$ without samples by using $\mLF$ instead of $\Psi$, which is often faster in practice.
-%
-%We can also sort the reads by their likely positions in a reference genome. This \emph{position order} is useful for both compression and storing the \emph{pairing information} for the reads. Consider a graph with reads as its nodes and edges between paired reads. If we sort the reads in position order, most edges will be close to the diagonal of the edge matrix. Such matrices are very easy to compress.
+Read Server stores the reads in \emph{reverse lexicographic order} to improve compression \cite{Cox2012}. We can maintain this order with a few changes to the search phase \cite{Li2014a}. Sorting the reads by their \emph{reverse complements} also improves compression in a similar way. In this order, $\mSA[\mBWT.\mselect(i,0)]$ points to the beginning of the reverse complement of read $T_{i}$, if the collection includes the reverse complement of every read \cite{Li2014a}. With \emph{lexicographic order}, we can determine $\mSA[i]$ without samples by using $\mLF$ instead of $\Psi$, which is often faster in practice.
 
+% arXiv:
+We can also sort the reads by their likely positions in a reference genome. This \emph{position order} is useful for both compression and storing the \emph{pairing information} for the reads. Consider a graph with reads as its nodes and edges between paired reads. If we sort the reads in position order, most edges will be close to the diagonal of the edge matrix. Such matrices are very easy to compress.
 
+% arXiv: (page break)
+\newpage
 \Section{References}
 \bibliographystyle{IEEEtran}
 \bibliography{paper}
