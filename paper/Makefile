@@ -5,7 +5,7 @@ all: paper.pdf
 # Final pdf for DCC must be version 1.5 with all fonts embedded.
 embedded.pdf: paper.pdf
 	gs -dSAFER -dNOPLATFONTS -dNOPAUSE -dBATCH \
-	-sDEVICE=pdfwrite -sPAPERSIZE=letter -dCompatibilityLevel=1.5 -dPDFSETTINGS=/printer \
+	-sDEVICE=pdfwrite -sPAPERSIZE=letter -dPDFSETTINGS=/printer -dCompatibilityLevel=1.5 \
 	-dMaxSubsetPct=100 -dSubsetFonts=true -dEmbedAllFonts=true \
 	-sOutputFile=embedded.pdf -f paper.pdf
 
