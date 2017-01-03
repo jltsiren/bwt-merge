@@ -30,7 +30,13 @@ There are three tools in the package:
 
 The list of supported BWT formats includes `native`, `plain_default`, `plain_sorted`, `rfm`, `ropebwt`, `sdsl`, and `sga`. [See the wiki](https://github.com/jltsiren/bwt-merge/wiki/BWT-Formats) for further information.
 
-## References
+## Citation
+
+Jouni Sirén: **Burrows-Wheeler transform for terabases**.
+Proc. DCC 2016, IEEE, pp. 211-220, Snowbird, Utah, USA, March 29 - April 1, 2016.
+[DOI: 10.1109/DCC.2016.17](http://dx.doi.org/10.1109/DCC.2016.17)
+
+## Other references
 
 Wing-Kai Hon, Tak-Wah Lam, Kunihiko Sadakane, Wing-Kin Sung, Siu-Ming Yiu:
 **A space and time efficient algorithm for constructing compressed suffix arrays**.
@@ -49,7 +55,3 @@ Markus J. Bauer, Anthony J. Cox, and Giovanna Rosone:
 **Lightweight algorithms for constructing and inverting the BWT of string collections**.
 Theoretical Computer Science 483: 134-148, 2013.
 [DOI: 10.1016/j.tcs.2012.02.002](http://dx.doi.org/10.1016/j.tcs.2012.02.002)
-
-Jouni Sirén: **Burrows-Wheeler transform for terabases**.
-Accepted to DCC 2016.
-[arXiv:1511.00898](http://arxiv.org/abs/1511.00898)
