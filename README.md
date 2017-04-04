@@ -34,24 +34,24 @@ The list of supported BWT formats includes `native`, `plain_default`, `plain_sor
 
 Jouni Sirén: **Burrows-Wheeler transform for terabases**.
 Proc. DCC 2016, IEEE, pp. 211-220, Snowbird, Utah, USA, March 29 - April 1, 2016.
-[DOI: 10.1109/DCC.2016.17](http://dx.doi.org/10.1109/DCC.2016.17)
+[DOI: 10.1109/DCC.2016.17](https://doi.org/10.1109/DCC.2016.17)
 
 ## Other references
 
 Wing-Kai Hon, Tak-Wah Lam, Kunihiko Sadakane, Wing-Kin Sung, Siu-Ming Yiu:
 **A space and time efficient algorithm for constructing compressed suffix arrays**.
 Algorithmica 48(1): 23-36, 2007.
-[DOI: 10.1007/s00453-006-1228-8](http://dx.doi.org/10.1007/s00453-006-1228-8)
+[DOI: 10.1007/s00453-006-1228-8](https://doi.org/10.1007/s00453-006-1228-8)
 
 Jouni Sirén: **Compressed Suffix Arrays for Massive Data**.
 Proc. SPIRE 2009, Springer LNCS 5721, pp. 63-74, Saariselkä, Finland, August 25-27, 2009.
-[DOI: 10.1007/978-3-642-03784-9_7](http://dx.doi.org/10.1007/978-3-642-03784-9_7)
+[DOI: 10.1007/978-3-642-03784-9_7](https://doi.org/10.1007/978-3-642-03784-9_7)
 
 Jouni Sirén: **Compressed Full-Text Indexes for Highly Repetitive Collections**.
 PhD Thesis, University of Helsinki, June 2012.
-[http://jltsiren.kapsi.fi/phd](http://jltsiren.kapsi.fi/phd)
+[http://jltsiren.kapsi.fi/phd](https://jltsiren.kapsi.fi/phd)
 
 Markus J. Bauer, Anthony J. Cox, and Giovanna Rosone:
 **Lightweight algorithms for constructing and inverting the BWT of string collections**.
 Theoretical Computer Science 483: 134-148, 2013.
-[DOI: 10.1016/j.tcs.2012.02.002](http://dx.doi.org/10.1016/j.tcs.2012.02.002)
+[DOI: 10.1016/j.tcs.2012.02.002](https://doi.org/10.1016/j.tcs.2012.02.002)
