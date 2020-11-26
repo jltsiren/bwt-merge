@@ -6,6 +6,11 @@ If the dataset is up to a few hundred gigabytes in size, it is probably more pra
 
 Further documentation can be found [in the wiki](https://github.com/jltsiren/bwt-merge/wiki).
 
+## Notes
+
+* This is a proof-of-concept implementation of the BWT-merge algorithm. There are other implementations for merging [GBWTs](https://github.com/jltsiren/gbwt) and [r-indexes](https://github.com/marco-oliva/rimerge).
+* There is an error in Figure 1 of the paper. The last two suffixes of R (in lexicographic order) are in wrong order. This affects the final values in a number of arrays.
+
 ## Usage
 
 BWT-merge is based on the [Succinct Data Structures Library 2.0 (SDSL)](https://github.com/simongog/sdsl-lite). To compile, set `SDSL_DIR` in the Makefile to point to your SDSL directory. The program should compile with g++ 4.7 or later on both Linux and OS X. It has not been tested with other compilers. Comment out the line `OUTPUT_FLAGS=-DVERBOSE_STATUS_INFO` if you do not want the merging tool to output status information to `stderr`.
